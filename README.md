@@ -2,6 +2,10 @@
 
 This repo turns the manual Colab + Tailscale + Ollama process into a small automation flow.
 
+Repository:
+
+- `https://github.com/MasudRana0q/ColebToVSCode`
+
 ## What You Get
 
 - `chat` mode: talk to the model directly inside Colab using `ollama run`
@@ -14,23 +18,22 @@ This repo turns the manual Colab + Tailscale + Ollama process into a small autom
 - `colab_ai.sh` - main automation script
 - `continue-config-template.yaml` - static template for Continue
 - `Coleb-To-VS-Code.ipynb` - Colab notebook template
-- `Coleb To VS Code.md` - original manual step-by-step notes
+- `https://github.com/MasudRana0q/ColebToVSCode` - GitHub repository for clone and reuse
 
 ## Recommended GitHub Flow
 
 1. Push this folder to GitHub.
 2. Open Colab.
 3. Upload or open `Coleb-To-VS-Code.ipynb`.
-4. Update the repository URL in the notebook.
-5. Run the notebook cells from top to bottom.
+4. Run the notebook cells from top to bottom.
 
 ## Quick Start Without Notebook
 
 Run these commands inside a Colab terminal:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
-cd YOUR_REPO
+git clone https://github.com/MasudRana0q/ColebToVSCode.git
+cd ColebToVSCode
 chmod +x colab_ai.sh
 bash colab_ai.sh setup
 ```
