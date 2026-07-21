@@ -196,3 +196,13 @@ Colab runtime reset হলে আবার `Step 1` থেকে শুরু �
 ```python
 !bash /content/ColebToVSCode/colab_ai.sh stop
 ```
+
+
+Check Logs 
+```python
+!cat /tmp/colab-chat-ui.log
+```
+or
+```python
+!bash /content/ColebToVSCode/colab_ai.sh log
+```
