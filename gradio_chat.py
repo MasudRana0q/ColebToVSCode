@@ -40,20 +40,10 @@ def create_interface():
     with gr.Blocks(title="Colab Ollama Chat") as demo:
         gr.Markdown(f"# Colab Ollama Chat\n\n**Model:** {MODEL_NAME}")
         
-        chatbot = gr.Chatbot(
-            bubble_full_width=False,
-            height=500
-        )
-        
-        msg = gr.Textbox(
-            placeholder="Type your message here...",
-            show_label=False,
-            scale=4
-        )
-        
-        with gr.Row():
-            submit = gr.Button("Send", scale=1)
-            clear = gr.Button("Clear Chat", scale=1)
+        chatbot = gr.Chatbot()
+        msg = gr.Textbox()
+        submit = gr.Button("Send")
+        clear = gr.Button("Clear")
         
         def user_message(user_message, history):
             return "", history + [[user_message, None]]
