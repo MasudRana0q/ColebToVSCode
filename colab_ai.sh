@@ -80,6 +80,76 @@ start_ollama_server() {
   sleep 4
 }
 
+wait_for_ollama_api() {
+  local retries=30
+  local i
+
+  for ((i=1; i<=retries; i++)); do
+    if curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+      return
+    fi
+    sleep 1
+  done
+
+  echo "Ollama API did not become ready in time" >&2
+  exit 1
+}
+
+pull_model_with_progress() {
+  require_command curl
+  require_command python3
+
+  wait_for_ollama_api
+
+  curl --no-buffer --silent \
+    -X POST http://127.0.0.1:11434/api/pull \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"$MODEL_NAME\",\"stream\":true}" |
+    python3 -c '
+import json
+import sys
+
+last_status = None
+last_percent = -1
+
+for raw_line in sys.stdin:
+    line = raw_line.strip()
+    if not line:
+        continue
+
+    try:
+        item = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+
+    status = item.get("status", "working")
+    completed = item.get("completed")
+    total = item.get("total")
+
+    if total and completed is not None and total > 0:
+        percent = int((completed * 100) / total)
+        if status != last_status or percent != last_percent:
+            downloaded_mb = completed / (1024 * 1024)
+            total_mb = total / (1024 * 1024)
+            print(f"Status   : {status}")
+            print(f"Progress : {percent}% ({downloaded_mb:.1f} MB / {total_mb:.1f} MB)")
+            print("-" * 40)
+            sys.stdout.flush()
+            last_status = status
+            last_percent = percent
+    else:
+        if status != last_status:
+            print(f"Status   : {status}")
+            print("Progress : preparing...")
+            print("-" * 40)
+            sys.stdout.flush()
+            last_status = status
+
+print("Status   : completed")
+print("Progress : 100%")
+'
+}
+
 ensure_model() {
   log "Checking model: $MODEL_NAME"
   if ollama show "$MODEL_NAME" >/dev/null 2>&1; then
@@ -88,7 +158,7 @@ ensure_model() {
   fi
 
   log "Pulling model: $MODEL_NAME"
-  ollama pull "$MODEL_NAME"
+  pull_model_with_progress
 }
 
 get_tailscale_ip() {

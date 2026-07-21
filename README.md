@@ -29,7 +29,7 @@ Repository:
 
 ## Quick Start Without Notebook
 
-Run these commands inside a Colab terminal:
+Run these commands inside a Colab terminal or xterm:
 
 ```bash
 git clone https://github.com/MasudRana0q/ColebToVSCode.git
@@ -38,11 +38,26 @@ chmod +x colab_ai.sh
 bash colab_ai.sh setup
 ```
 
+If you want to run the same steps in a normal Colab Python cell, add `!` before shell commands:
+
+```python
+!git clone https://github.com/MasudRana0q/ColebToVSCode.git
+%cd /content/ColebToVSCode
+!chmod +x colab_ai.sh
+!bash colab_ai.sh setup
+```
+
 After setup, choose one of the two modes below.
 
 ## Mode 1: Chat Inside Colab
 
 This mode opens the model directly in Colab so you can chat there.
+
+Important:
+
+- Do not run `chat` mode from a normal Colab Python cell with `!bash colab_ai.sh chat`
+- Run it inside the `xterm` terminal opened by `%xterm`
+- In a normal Colab cell, interactive input may appear like a hidden password box, so your typing is not shown properly
 
 ```bash
 bash colab_ai.sh chat
