@@ -273,7 +273,8 @@ start_web_chat_ui() {
 
   log "Stopping any existing web chat UI process"
   pkill -f "chat_ui.py" || true
-  sleep 1
+  fuser -k ${WEB_CHAT_PORT}/tcp 2>/dev/null || true
+  sleep 2
 
   log "Starting web chat UI in background"
   nohup env \
