@@ -1,121 +1,162 @@
-# Colab to VS Code Automation
+# Colab to VS Code সহজ গাইড
 
-This repo turns the manual Colab + Tailscale + Ollama process into a small automation flow.
-
-Repository:
+Repo link:
 
 - `https://github.com/MasudRana0q/ColebToVSCode`
 
-## What You Get
+## কী কাজ করবে
 
-- `chat` mode: talk to the model directly inside Colab using `ollama run`
-- `api` mode: start a remote Ollama endpoint for VS Code / Continue
-- `config` output: prints a ready-to-copy Continue config using the current Tailscale IP
-- `status` output: shows whether Tailscale, Ollama, and the model are ready
+- Colab-এ AI chat
+- VS Code-এ API দিয়ে coding
 
-## Files
+## প্রথমে কী করবেন
 
-- `colab_ai.sh` - main automation script
-- `continue-config-template.yaml` - static template for Continue
-- `Coleb-To-VS-Code.ipynb` - Colab notebook template
-- `https://github.com/MasudRana0q/ColebToVSCode` - GitHub repository for clone and reuse
+- Google Colab খুলুন
+- একটি নতুন notebook নিন
+- নিচের `Step 1` cell চালান
 
-## Recommended GitHub Flow
+## Step 1: Setup চালান
 
-1. Push this folder to GitHub.
-2. Open Colab.
-3. Upload or open `Coleb-To-VS-Code.ipynb`.
-4. Run the notebook cells from top to bottom.
-
-## Quick Start Without Notebook
-
-Run these commands inside a Colab terminal or xterm:
-
-```bash
-git clone https://github.com/MasudRana0q/ColebToVSCode.git
-cd ColebToVSCode
-chmod +x colab_ai.sh
-bash colab_ai.sh setup
-```
-
-If you want to run the same steps in a normal Colab Python cell, add `!` before shell commands:
+এই code টি Colab-এর normal code cell-এ চালান:
 
 ```python
+!rm -rf /content/ColebToVSCode
 !git clone https://github.com/MasudRana0q/ColebToVSCode.git
 %cd /content/ColebToVSCode
 !chmod +x colab_ai.sh
 !bash colab_ai.sh setup
 ```
 
-After setup, choose one of the two modes below.
+এতে যা হবে:
 
-## Mode 1: Chat Inside Colab
+- repo clone হবে
+- `colab-xterm` install হবে
+- Tailscale install হবে
+- Ollama install হবে
+- server start হবে
 
-This mode opens the model directly in Colab so you can chat there.
+যদি Tailscale login link আসে, সেটি খুলে login complete করুন।
 
-Important:
+## Step 2: Terminal খুলুন
 
-- Do not run `chat` mode from a normal Colab Python cell with `!bash colab_ai.sh chat`
-- Run it inside the `xterm` terminal opened by `%xterm`
-- In a normal Colab cell, interactive input may appear like a hidden password box, so your typing is not shown properly
+Setup শেষ হলে নতুন একটি Colab code cell-এ এটা চালান:
+
+```python
+%load_ext colabxterm
+%xterm
+```
+
+এতে নিচে terminal open হবে।
+
+## Colab-এ Chat করতে চাইলে
+
+খোলা terminal-এর ভিতরে এটা চালান:
 
 ```bash
+cd /content/ColebToVSCode
 bash colab_ai.sh chat
 ```
 
-Example prompts:
+তারপর terminal-এর ভিতরে normal text এর মতো লিখুন:
 
 ```text
 Hi
 Write a Python hello world program.
-Create a React Todo App.
 ```
 
-## Mode 2: API For VS Code
+নোট:
 
-This mode starts Ollama, ensures the model exists, prints the Tailscale IP, and prints a Continue config.
+- `chat` command normal Colab cell-এ চালাবেন না
+- terminal-এর ভিতরে চালাবেন
 
-```bash
-bash colab_ai.sh api
+## VS Code-এ ব্যবহার করতে চাইলে
+
+Colab-এর normal code cell-এ এটা চালান:
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh api
 ```
 
-You will get output like:
+এতে আপনি পাবেন:
+
+- Tailscale IP
+- Ollama API Base
+- Continue config
+
+## VS Code-এ কোনটা বসাবেন
+
+- `apiBase` হবে:
 
 ```text
-Ollama API Base : http://100.x.x.x:11434
-OpenAI Base URL : http://100.x.x.x:11434/v1
-Dummy API Key   : ollama
+http://YOUR_TAILSCALE_IP:11434
 ```
 
-## Important API Key Note
+- যদি কোনো app API key চাইতেই থাকে, dummy key হিসেবে এটা দিতে পারেন:
 
-Ollama does not create a real secure API key like cloud providers do.
-
-- For `Continue` with `provider: ollama`, use `apiBase` and do not depend on an API key.
-- For tools that require a non-empty OpenAI-style key field, you can use the dummy value `ollama`.
-- The actual connection is controlled by your Tailscale network, not by the dummy key.
-
-## Continue Setup
-
-Run:
-
-```bash
-bash colab_ai.sh config
+```text
+ollama
 ```
 
-Then copy the printed YAML into your Continue config, or start from `continue-config-template.yaml` and replace `YOUR_TAILSCALE_IP`.
+## দরকারি command
 
-## Useful Commands
+Status দেখার জন্য:
 
-```bash
-bash colab_ai.sh status
-bash colab_ai.sh config
-bash colab_ai.sh stop
+```python
+!bash /content/ColebToVSCode/colab_ai.sh status
 ```
 
-## Runtime Notes
+Config আবার দেখার জন্য:
 
-- If the Colab runtime resets, you need to run the setup again.
-- If the model already exists in the same runtime storage, `ollama pull` is skipped.
-- Tailscale login may still need manual approval when the runtime changes.
-- The Tailscale IP can change when you reconnect.
+```python
+!bash /content/ColebToVSCode/colab_ai.sh config
+```
+
+Server বন্ধ করার জন্য:
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh stop
+```
+
+## যদি runtime reset হয়
+
+Colab runtime reset হলে আবার `Step 1` থেকে শুরু করবেন।
+
+## এক লাইনে মনে রাখুন
+
+- `Step 1` = setup
+- `Step 2` = terminal open
+- `chat` = terminal-এর ভিতরে
+- `api` = normal Colab cell-এ
+
+## সার্ভার আবার চালু করতে চাইলে
+
+কোডিং করার জন্য server নতুন করে চালু করতে চাইলে এটা চালান:
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh restart
+```
+
+এতে যা হবে:
+
+- পুরনো Ollama server বন্ধ হবে
+- নতুন করে server চালু হবে
+- API info আবার দেখাবে
+
+## সার্ভার চলছে কিনা দেখবেন যেভাবে
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh status
+```
+
+এতে দেখতে পাবেন:
+
+- `tailscaled` চলছে কিনা
+- `tailscale login` connected কিনা
+- `ollama serve` চলছে কিনা
+- model install আছে কিনা
+
+## সার্ভার বন্ধ করতে চাইলে
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh stop
+```

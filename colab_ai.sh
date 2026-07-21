@@ -27,6 +27,21 @@ install_base_packages() {
   DEBIAN_FRONTEND=noninteractive apt-get install -y curl screen zstd
 }
 
+install_colab_xterm() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    log "Skipping colab-xterm install because python3 is not available"
+    return
+  fi
+
+  if python3 -m pip show colab-xterm >/dev/null 2>&1; then
+    log "colab-xterm is already installed"
+    return
+  fi
+
+  log "Installing colab-xterm for Colab terminal support"
+  python3 -m pip install -q colab-xterm
+}
+
 install_tailscale() {
   if command -v tailscale >/dev/null 2>&1; then
     log "Tailscale already installed"
@@ -224,6 +239,7 @@ verify_api() {
 }
 
 setup_everything() {
+  install_colab_xterm
   install_base_packages
   install_tailscale
   start_tailscaled
@@ -287,12 +303,24 @@ stop_services() {
   pkill -f "ollama serve" || true
 }
 
+restart_api_mode() {
+  stop_services
+  sleep 2
+  setup_everything
+  ensure_model
+  print_connection_info
+  verify_api
+  echo "Continue config:"
+  print_continue_config
+}
+
 show_help() {
   cat <<'EOF'
 Usage:
   bash colab_ai.sh setup
   bash colab_ai.sh chat
   bash colab_ai.sh api
+  bash colab_ai.sh restart
   bash colab_ai.sh config
   bash colab_ai.sh status
   bash colab_ai.sh stop
@@ -301,6 +329,7 @@ Commands:
   setup   Install and start Tailscale + Ollama for the current Colab runtime
   chat    Open local chat mode inside Colab using ollama run
   api     Start API mode for VS Code / Continue and print ready-to-use config
+  restart Stop the old Ollama server and start API mode again
   config  Print Continue config using the current Tailscale IP
   status  Show service and model status
   stop    Stop the Ollama server
@@ -324,6 +353,9 @@ main() {
       ;;
     api)
       run_api_mode
+      ;;
+    restart)
+      restart_api_mode
       ;;
     config)
       print_continue_config
