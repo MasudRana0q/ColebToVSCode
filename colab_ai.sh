@@ -8,6 +8,9 @@ OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-24h}"
 TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
 TAILSCALE_LOG_PATH="${TAILSCALE_LOG_PATH:-/tmp/tailscaled.log}"
 OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
+WEB_CHAT_PORT="${WEB_CHAT_PORT:-8080}"
+WEB_CHAT_HOST_BIND="${WEB_CHAT_HOST_BIND:-0.0.0.0}"
+WEB_CHAT_LOG_PATH="${WEB_CHAT_LOG_PATH:-/tmp/colab-chat-ui.log}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%H:%M:%S')" "$1"
@@ -146,24 +149,22 @@ for raw_line in sys.stdin:
         if status != last_status or percent != last_percent:
             downloaded_mb = completed / (1024 * 1024)
             total_mb = total / (1024 * 1024)
-            print(f"Status   : {status}")
-            print(f"Progress : {percent}% ({downloaded_mb:.1f} MB / {total_mb:.1f} MB)")
-            print("-" * 40)
+            sys.stdout.write(
+                f"\rStatus: {status} | Progress: {percent}% "
+                f"({downloaded_mb:.1f} MB / {total_mb:.1f} MB)"
+            )
             sys.stdout.flush()
             last_status = status
             last_percent = percent
     else:
         if status != last_status:
-            print(f"Status   : {status}")
-            print("Progress : preparing...")
-            print("-" * 40)
+            sys.stdout.write(f"\rStatus: {status} | Progress: preparing...                ")
             sys.stdout.flush()
             last_status = status
-
+print()
 print("Status   : completed")
 print("Progress : 100%")
 '
-}
 
 ensure_model() {
   log "Checking model: $MODEL_NAME"
@@ -178,6 +179,12 @@ ensure_model() {
 
 get_tailscale_ip() {
   tailscale ip -4 | head -n 1
+}
+
+get_script_dir() {
+  local source_path
+  source_path="${BASH_SOURCE[0]}"
+  cd "$(dirname "$source_path")" >/dev/null 2>&1 && pwd
 }
 
 print_connection_info() {
@@ -238,6 +245,56 @@ verify_api() {
   echo
 }
 
+wait_for_web_chat_ui() {
+  local retries=30
+  local i
+
+  for ((i=1; i<=retries; i++)); do
+    if curl --silent --fail "http://127.0.0.1:${WEB_CHAT_PORT}/health" >/dev/null 2>&1; then
+      return
+    fi
+    sleep 1
+  done
+
+  echo "Web chat UI did not become ready in time" >&2
+  exit 1
+}
+
+start_web_chat_ui() {
+  require_command curl
+  require_command python3
+
+  if curl --silent --fail "http://127.0.0.1:${WEB_CHAT_PORT}/health" >/dev/null 2>&1; then
+    log "Web chat UI is already running"
+    return
+  fi
+
+  log "Starting web chat UI in background"
+  nohup env \
+    MODEL_NAME="$MODEL_NAME" \
+    CHAT_UI_HOST="$WEB_CHAT_HOST_BIND" \
+    CHAT_UI_PORT="$WEB_CHAT_PORT" \
+    OLLAMA_CHAT_URL="http://127.0.0.1:11434/api/chat" \
+    python3 "$(get_script_dir)/chat_ui.py" >"$WEB_CHAT_LOG_PATH" 2>&1 &
+
+  wait_for_web_chat_ui
+}
+
+print_web_chat_info() {
+  local ts_ip
+  ts_ip="$(get_tailscale_ip)"
+
+  echo
+  echo "========================================"
+  echo "Web Chat Information"
+  echo "========================================"
+  echo "Local URL        : http://127.0.0.1:${WEB_CHAT_PORT}"
+  echo "Tailscale URL    : http://${ts_ip}:${WEB_CHAT_PORT}"
+  echo "Model            : $MODEL_NAME"
+  echo
+  echo "Open the Tailscale URL in a browser tab to chat without blocking the terminal."
+}
+
 setup_everything() {
   install_colab_xterm
   install_base_packages
@@ -248,11 +305,24 @@ setup_everything() {
   start_ollama_server
 }
 
+run_setup_mode() {
+  setup_everything
+  ensure_model
+  log "Setup complete. Chat and API modes should now start much faster."
+}
+
 run_chat_mode() {
   setup_everything
   ensure_model
   log "Starting local chat mode"
   ollama run "$MODEL_NAME"
+}
+
+run_web_chat_mode() {
+  setup_everything
+  ensure_model
+  start_web_chat_ui
+  print_web_chat_info
 }
 
 run_api_mode() {
@@ -289,6 +359,13 @@ show_status() {
     echo "ollama serve    : stopped"
   fi
 
+  if curl --silent --fail "http://127.0.0.1:${WEB_CHAT_PORT}/health" >/dev/null 2>&1; then
+    echo "web chat ui     : running"
+    echo "web chat port   : ${WEB_CHAT_PORT}"
+  else
+    echo "web chat ui     : stopped"
+  fi
+
   if command -v ollama >/dev/null 2>&1; then
     echo "ollama version  : $(ollama --version)"
     echo "installed models:"
@@ -301,6 +378,8 @@ show_status() {
 stop_services() {
   log "Stopping Ollama server if running"
   pkill -f "ollama serve" || true
+  log "Stopping web chat UI if running"
+  pkill -f "chat_ui.py" || true
 }
 
 restart_api_mode() {
@@ -319,6 +398,7 @@ show_help() {
 Usage:
   bash colab_ai.sh setup
   bash colab_ai.sh chat
+  bash colab_ai.sh webchat
   bash colab_ai.sh api
   bash colab_ai.sh restart
   bash colab_ai.sh config
@@ -326,8 +406,9 @@ Usage:
   bash colab_ai.sh stop
 
 Commands:
-  setup   Install and start Tailscale + Ollama for the current Colab runtime
+  setup   Install everything and preload the model for the current Colab runtime
   chat    Open local chat mode inside Colab using ollama run
+  webchat Start a browser-based chat UI that runs in the background
   api     Start API mode for VS Code / Continue and print ready-to-use config
   restart Stop the old Ollama server and start API mode again
   config  Print Continue config using the current Tailscale IP
@@ -346,10 +427,13 @@ main() {
 
   case "$command" in
     setup)
-      setup_everything
+      run_setup_mode
       ;;
     chat)
       run_chat_mode
+      ;;
+    webchat)
+      run_web_chat_mode
       ;;
     api)
       run_api_mode

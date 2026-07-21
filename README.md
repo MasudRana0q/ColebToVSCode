@@ -34,10 +34,28 @@ Repo link:
 - Tailscale install হবে
 - Ollama install হবে
 - server start হবে
+- selected model download হবে
+- পরে `chat` বা `api` চালাতে অনেক কম সময় লাগবে
 
 যদি Tailscale login link আসে, সেটি খুলে login complete করুন।
 
-## Step 2: Terminal খুলুন
+## Step 2: Chat করার ধরন বেছে নিন
+
+### Option A: Browser tab-এ chat
+
+Colab-এর normal code cell-এ এটা চালান:
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh webchat
+```
+
+এতে আপনি একটি URL পাবেন।
+
+- `Tailscale URL` browser-এর নতুন tab-এ খুলুন
+- terminal hang না হয়ে browser page-এ chat করতে পারবেন
+- অন্য tab-এ গেলেও chat interface খোলা থাকবে
+
+### Option B: Terminal chat
 
 Setup শেষ হলে নতুন একটি Colab code cell-এ এটা চালান:
 
@@ -66,8 +84,10 @@ Write a Python hello world program.
 
 নোট:
 
+- browser-based chat চাইলে `webchat` ব্যবহার করা ভালো
 - `chat` command normal Colab cell-এ চালাবেন না
 - terminal-এর ভিতরে চালাবেন
+- `setup` একবার শেষ হলে `chat` command সাধারণত শুধু ready model ব্যবহার করবে
 
 ## VS Code-এ ব্যবহার করতে চাইলে
 
@@ -82,6 +102,7 @@ Colab-এর normal code cell-এ এটা চালান:
 - Tailscale IP
 - Ollama API Base
 - Continue config
+- `setup` আগে হয়ে থাকলে এখানে আর বড় model download হবে না
 
 ## VS Code-এ কোনটা বসাবেন
 
@@ -117,15 +138,22 @@ Server বন্ধ করার জন্য:
 !bash /content/ColebToVSCode/colab_ai.sh stop
 ```
 
+Web chat চালু করার জন্য:
+
+```python
+!bash /content/ColebToVSCode/colab_ai.sh webchat
+```
+
 ## যদি runtime reset হয়
 
 Colab runtime reset হলে আবার `Step 1` থেকে শুরু করবেন।
 
 ## এক লাইনে মনে রাখুন
 
-- `Step 1` = setup
-- `Step 2` = terminal open
-- `chat` = terminal-এর ভিতরে
+- `Step 1` = setup + model preload
+- `Step 2` = `webchat` বা terminal open
+- `webchat` = browser tab-এ chat
+- `chat` = terminal-এর ভিতরে CLI chat
 - `api` = normal Colab cell-এ
 
 ## সার্ভার আবার চালু করতে চাইলে
