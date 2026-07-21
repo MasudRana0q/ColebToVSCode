@@ -30,19 +30,19 @@ install_base_packages() {
   DEBIAN_FRONTEND=noninteractive apt-get install -y curl screen zstd
 }
 
-install_gradio() {
+install_streamlit() {
   if ! command -v python3 >/dev/null 2>&1; then
-    log "Skipping gradio install because python3 is not available"
+    log "Skipping streamlit install because python3 is not available"
     return
   fi
 
-  if python3 -m pip show gradio >/dev/null 2>&1; then
-    log "gradio is already installed"
+  if python3 -m pip show streamlit >/dev/null 2>&1; then
+    log "streamlit is already installed"
     return
   fi
 
-  log "Installing gradio for web chat UI"
-  python3 -m pip install -q gradio requests
+  log "Installing streamlit for web chat UI"
+  python3 -m pip install -q streamlit requests
 }
 
 install_colab_xterm() {
@@ -287,16 +287,20 @@ start_web_chat_ui() {
   fi
 
   log "Stopping any existing web chat UI process"
+  pkill -9 -f "streamlit_chat.py" || true
   pkill -9 -f "gradio_chat.py" || true
   pkill -9 -f "chat_ui.py" || true
   sleep 2
 
-  log "Starting Gradio web chat UI in background"
+  log "Starting Streamlit web chat UI in background"
   nohup env \
     MODEL_NAME="$MODEL_NAME" \
-    CHAT_UI_PORT="$WEB_CHAT_PORT" \
     OLLAMA_CHAT_URL="http://127.0.0.1:11434/api/chat" \
-    python3 "$(get_script_dir)/gradio_chat.py" >"$WEB_CHAT_LOG_PATH" 2>&1 &
+    streamlit run "$(get_script_dir)/streamlit_chat.py" \
+    --server.port="${WEB_CHAT_PORT}" \
+    --server.address="${WEB_CHAT_HOST_BIND}" \
+    --server.headless=true \
+    --browser.gatherUsageStats=false >"$WEB_CHAT_LOG_PATH" 2>&1 &
   
   sleep 3
 
@@ -321,7 +325,7 @@ print_web_chat_info() {
 setup_everything() {
   install_colab_xterm
   install_base_packages
-  install_gradio
+  install_streamlit
   install_tailscale
   start_tailscaled
   ensure_tailscale_login
