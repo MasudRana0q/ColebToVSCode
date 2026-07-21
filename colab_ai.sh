@@ -247,7 +247,7 @@ verify_api() {
 }
 
 wait_for_web_chat_ui() {
-  local retries=30
+  local retries=60
   local i
 
   for ((i=1; i<=retries; i++)); do
@@ -258,6 +258,7 @@ wait_for_web_chat_ui() {
   done
 
   echo "Web chat UI did not become ready in time" >&2
+  echo "Check log file: $WEB_CHAT_LOG_PATH" >&2
   exit 1
 }
 
@@ -277,6 +278,8 @@ start_web_chat_ui() {
     CHAT_UI_PORT="$WEB_CHAT_PORT" \
     OLLAMA_CHAT_URL="http://127.0.0.1:11434/api/chat" \
     python3 "$(get_script_dir)/chat_ui.py" >"$WEB_CHAT_LOG_PATH" 2>&1 &
+  
+  sleep 2
 
   wait_for_web_chat_ui
 }
@@ -394,6 +397,15 @@ restart_api_mode() {
   print_continue_config
 }
 
+show_web_chat_log() {
+  if [ -f "$WEB_CHAT_LOG_PATH" ]; then
+    echo "Web chat UI log:"
+    cat "$WEB_CHAT_LOG_PATH"
+  else
+    echo "No web chat log file found at: $WEB_CHAT_LOG_PATH"
+  fi
+}
+
 show_help() {
   cat <<'EOF'
 Usage:
@@ -405,6 +417,7 @@ Usage:
   bash colab_ai.sh config
   bash colab_ai.sh status
   bash colab_ai.sh stop
+  bash colab_ai.sh log
 
 Commands:
   setup   Install everything and preload the model for the current Colab runtime
@@ -415,6 +428,7 @@ Commands:
   config  Print Continue config using the current Tailscale IP
   status  Show service and model status
   stop    Stop the Ollama server
+  log     Show web chat UI log for debugging
 
 Optional environment variables:
   MODEL_NAME=qwen3-coder:latest
@@ -450,6 +464,9 @@ main() {
       ;;
     stop)
       stop_services
+      ;;
+    log)
+      show_web_chat_log
       ;;
     help|-h|--help)
       show_help
