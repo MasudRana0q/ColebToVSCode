@@ -30,6 +30,21 @@ install_base_packages() {
   DEBIAN_FRONTEND=noninteractive apt-get install -y curl screen zstd
 }
 
+install_gradio() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    log "Skipping gradio install because python3 is not available"
+    return
+  fi
+
+  if python3 -m pip show gradio >/dev/null 2>&1; then
+    log "gradio is already installed"
+    return
+  fi
+
+  log "Installing gradio for web chat UI"
+  python3 -m pip install -q gradio requests
+}
+
 install_colab_xterm() {
   if ! command -v python3 >/dev/null 2>&1; then
     log "Skipping colab-xterm install because python3 is not available"
@@ -272,18 +287,18 @@ start_web_chat_ui() {
   fi
 
   log "Stopping any existing web chat UI process"
+  pkill -f "gradio_chat.py" || true
   pkill -f "chat_ui.py" || true
   sleep 1
 
-  log "Starting web chat UI in background"
+  log "Starting Gradio web chat UI in background"
   nohup env \
     MODEL_NAME="$MODEL_NAME" \
-    CHAT_UI_HOST="$WEB_CHAT_HOST_BIND" \
     CHAT_UI_PORT="$WEB_CHAT_PORT" \
     OLLAMA_CHAT_URL="http://127.0.0.1:11434/api/chat" \
-    python3 "$(get_script_dir)/chat_ui.py" >"$WEB_CHAT_LOG_PATH" 2>&1 &
+    python3 "$(get_script_dir)/gradio_chat.py" >"$WEB_CHAT_LOG_PATH" 2>&1 &
   
-  sleep 2
+  sleep 3
 
   wait_for_web_chat_ui
 }
@@ -306,6 +321,7 @@ print_web_chat_info() {
 setup_everything() {
   install_colab_xterm
   install_base_packages
+  install_gradio
   install_tailscale
   start_tailscaled
   ensure_tailscale_login
