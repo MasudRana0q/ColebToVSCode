@@ -287,9 +287,9 @@ start_web_chat_ui() {
   fi
 
   log "Stopping any existing web chat UI process"
-  pkill -f "gradio_chat.py" || true
-  pkill -f "chat_ui.py" || true
-  sleep 1
+  pkill -9 -f "gradio_chat.py" || true
+  pkill -9 -f "chat_ui.py" || true
+  sleep 2
 
   log "Starting Gradio web chat UI in background"
   nohup env \
