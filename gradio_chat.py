@@ -41,7 +41,6 @@ def create_interface():
         gr.Markdown(f"# Colab Ollama Chat\n\n**Model:** {MODEL_NAME}")
         
         chatbot = gr.Chatbot(
-            show_copy_button=True,
             bubble_full_width=False,
             height=500
         )
