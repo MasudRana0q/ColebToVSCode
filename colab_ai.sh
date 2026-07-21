@@ -314,6 +314,19 @@ setup_everything() {
   start_ollama_server
 }
 
+ensure_services_running() {
+  if ! pgrep -x tailscaled >/dev/null 2>&1; then
+    log "Starting tailscaled"
+    start_tailscaled
+    ensure_tailscale_login
+  fi
+
+  if ! pgrep -f "ollama serve" >/dev/null 2>&1; then
+    log "Starting Ollama server"
+    start_ollama_server
+  fi
+}
+
 run_setup_mode() {
   setup_everything
   ensure_model
@@ -321,21 +334,21 @@ run_setup_mode() {
 }
 
 run_chat_mode() {
-  setup_everything
+  ensure_services_running
   ensure_model
   log "Starting local chat mode"
   ollama run "$MODEL_NAME"
 }
 
 run_web_chat_mode() {
-  setup_everything
+  ensure_services_running
   ensure_model
   start_web_chat_ui
   print_web_chat_info
 }
 
 run_api_mode() {
-  setup_everything
+  ensure_services_running
   ensure_model
   print_connection_info
   verify_api
