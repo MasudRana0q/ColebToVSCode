@@ -165,6 +165,7 @@ print()
 print("Status   : completed")
 print("Progress : 100%")
 '
+}
 
 ensure_model() {
   log "Checking model: $MODEL_NAME"

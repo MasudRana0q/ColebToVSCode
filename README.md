@@ -26,7 +26,15 @@ Repo link:
 !chmod +x colab_ai.sh
 !bash colab_ai.sh setup
 ```
-
+or
+```python
+%cd /content
+!rm -rf /content/ColebToVSCode
+!git clone https://github.com/MasudRana0q/ColebToVSCode.git
+%cd /content/ColebToVSCode
+!chmod +x colab_ai.sh
+!bash colab_ai.sh setup
+```
 এতে যা হবে:
 
 - repo clone হবে
