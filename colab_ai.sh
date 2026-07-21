@@ -247,7 +247,7 @@ verify_api() {
 }
 
 wait_for_web_chat_ui() {
-  local retries=60
+  local retries=300
   local i
 
   for ((i=1; i<=retries; i++)); do
