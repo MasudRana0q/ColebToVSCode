@@ -1,0 +1,22 @@
+name: Colab Ollama
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Qwen3 Coder
+    provider: ollama
+    model: qwen3-coder:latest
+    apiBase: http://YOUR_TAILSCALE_IP:11434
+
+    defaultCompletionOptions:
+      contextLength: 8192
+      temperature: 0.2
+
+    capabilities:
+      - tool_use
+
+    roles:
+      - chat
+      - edit
+      - apply
+      - autocomplete
