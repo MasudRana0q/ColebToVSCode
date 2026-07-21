@@ -271,6 +271,10 @@ start_web_chat_ui() {
     return
   fi
 
+  log "Stopping any existing web chat UI process"
+  pkill -f "chat_ui.py" || true
+  sleep 1
+
   log "Starting web chat UI in background"
   nohup env \
     MODEL_NAME="$MODEL_NAME" \
@@ -384,6 +388,7 @@ stop_services() {
   pkill -f "ollama serve" || true
   log "Stopping web chat UI if running"
   pkill -f "chat_ui.py" || true
+  sleep 1
 }
 
 restart_api_mode() {
