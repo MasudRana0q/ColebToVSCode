@@ -42,9 +42,23 @@ require_command() {
 }
 
 install_base_packages() {
+  if command -v curl >/dev/null 2>&1 && command -v screen >/dev/null 2>&1 && command -v zstd >/dev/null 2>&1; then
+    log "Required Linux packages are already available"
+    debug_log "apt:skip reason=packages-already-installed"
+    return
+  fi
+
   log "Installing required Linux packages"
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y curl screen zstd
+  debug_log "apt:update:start"
+  apt-get update \
+    -o Acquire::Retries=2 \
+    -o Acquire::ForceIPv4=true \
+    -o Acquire::http::Timeout=20 \
+    -o Acquire::https::Timeout=20
+  debug_log "apt:update:end exit_code=$?"
+  debug_log "apt:install:start packages=curl,screen,zstd"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl screen zstd
+  debug_log "apt:install:end exit_code=$?"
 }
 
 install_streamlit() {
