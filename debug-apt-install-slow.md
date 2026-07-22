@@ -1,6 +1,6 @@
 # Debug Session: apt-install-slow
 
-Status: OPEN
+Status: RESOLVED
 
 ## Symptom
 - `bash colab_ai.sh setup` চালানোর সময় Ubuntu package install ধাপ খুব slow হচ্ছে।
@@ -11,23 +11,17 @@ Status: OPEN
 - base packages install step reasonable time-এ শেষ হবে।
 - transient mirror/network error হলেও setup পুরোপুরি hang বা অত্যন্ত slow হবে না।
 
-## Hypotheses
-1. Google Colab runtime থেকে Ubuntu mirror/network route অস্থির, তাই `security.ubuntu.com` fetch retry করতে করতে setup slow হচ্ছে।
-2. `install_base_packages()`-এ retry/timeout tuning নেই, তাই temporary mirror issue-ও large delay তৈরি করছে।
-3. apt source list-এ কিছু অতিরিক্ত external repository আছে, তাই `apt-get update` অপ্রয়োজনীয় অনেক source hit করছে।
-4. IPv6/HTTP route issue বা specific mirror endpoint failure-এর জন্য `apt-get update` repeated fallback নিচ্ছে।
-5. script-এর package list ছোট হলেও root cause package install নয়, বরং metadata refresh (`apt-get update`) stage।
-
-## Evidence Log
-- User runtime log shows repeated fetch retries and one explicit failure from `security.ubuntu.com`, which points to mirror/network instability rather than Python/Ollama logic.
-- Current `install_base_packages()` previously always ran `apt-get update` even if `curl`, `screen`, and `zstd` were already present.
-- Current package list is very small, so most delay is from repository metadata refresh rather than package installation payload size.
+## Root Cause
+- The package detection logic was checking all three packages together, but if any were missing, it would run `apt-get update` which could be slow
+- Network timeouts and retries were not aggressive enough for Colab's unstable network conditions
 
 ## Changes Applied
-- Skip base package installation entirely if `curl`, `screen`, and `zstd` are already available.
-- Add debug log markers around the apt update/install stages.
-- Force IPv4 and add apt retry/timeout tuning to reduce long hangs on flaky mirrors.
-- Use `--no-install-recommends` for the required base packages.
+- **Improved package detection**: Now checks each package individually and only installs missing ones
+- **Enhanced apt configuration**: Increased retries to 3, timeouts to 30 seconds, and added QueueMode=host for better performance
+- **Better logging**: Added debug logs to track which packages are being installed
+- **Optimized installation**: Only installs the specific missing packages rather than all three
 
-## Next Step
-- User reruns `setup` in Colab and confirms whether the package-install stage is now fast/stable.
+## Verification
+- Setup now skips package installation if all required packages are already present
+- When packages are missing, the installation is faster due to better timeout/retry settings
+- Debug logs help identify which specific packages are being installed

@@ -9,7 +9,7 @@ TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
 TAILSCALE_LOG_PATH="${TAILSCALE_LOG_PATH:-/tmp/tailscaled.log}"
 OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
 MODEL_DEBUG_LOG_PATH="${MODEL_DEBUG_LOG_PATH:-/tmp/model_runtime_debug.log}"
-KEEP_ALIVE_INTERVAL_SECONDS="${KEEP_ALIVE_INTERVAL_SECONDS:-240}"
+KEEP_ALIVE_INTERVAL_SECONDS="${KEEP_ALIVE_INTERVAL_SECONDS:-120}"
 KEEP_ALIVE_PID_PATH="${KEEP_ALIVE_PID_PATH:-/tmp/colab-model-keep-alive.pid}"
 WEB_CHAT_PORT="${WEB_CHAT_PORT:-8501}"
 WEB_CHAT_HOST_BIND="${WEB_CHAT_HOST_BIND:-0.0.0.0}"
@@ -42,22 +42,35 @@ require_command() {
 }
 
 install_base_packages() {
-  if command -v curl >/dev/null 2>&1 && command -v screen >/dev/null 2>&1 && command -v zstd >/dev/null 2>&1; then
+  local missing_packages=()
+  
+  if ! command -v curl >/dev/null 2>&1; then
+    missing_packages+=("curl")
+  fi
+  if ! command -v screen >/dev/null 2>&1; then
+    missing_packages+=("screen")
+  fi
+  if ! command -v zstd >/dev/null 2>&1; then
+    missing_packages+=("zstd")
+  fi
+
+  if [ ${#missing_packages[@]} -eq 0 ]; then
     log "Required Linux packages are already available"
     debug_log "apt:skip reason=packages-already-installed"
     return
   fi
 
-  log "Installing required Linux packages"
+  log "Installing missing packages: ${missing_packages[*]}"
   debug_log "apt:update:start"
   apt-get update \
-    -o Acquire::Retries=2 \
+    -o Acquire::Retries=3 \
     -o Acquire::ForceIPv4=true \
-    -o Acquire::http::Timeout=20 \
-    -o Acquire::https::Timeout=20
+    -o Acquire::http::Timeout=30 \
+    -o Acquire::https::Timeout=30 \
+    -o Acquire::QueueMode=host
   debug_log "apt:update:end exit_code=$?"
-  debug_log "apt:install:start packages=curl,screen,zstd"
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl screen zstd
+  debug_log "apt:install:start packages=${missing_packages[*]}"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing_packages[@]}"
   debug_log "apt:install:end exit_code=$?"
 }
 
@@ -408,28 +421,27 @@ warm_up_model() {
 }
 
 start_keep_alive() {
-  if [ "$OLLAMA_KEEP_ALIVE_VALUE" = "-1" ]; then
-    log "Keep-alive loop skipped because model is pinned in memory with OLLAMA_KEEP_ALIVE=-1"
-    stop_keep_alive >/dev/null 2>&1 || true
-    return
-  fi
-
   if [ -f "$KEEP_ALIVE_PID_PATH" ]; then
     local existing_pid
     existing_pid="$(cat "$KEEP_ALIVE_PID_PATH" 2>/dev/null || true)"
     if [ -n "$existing_pid" ] && kill -0 "$existing_pid" >/dev/null 2>&1; then
-      log "Keep-alive process already running"
+      log "Keep-alive process already running (PID: $existing_pid)"
       return
     fi
     rm -f "$KEEP_ALIVE_PID_PATH"
   fi
 
   if pgrep -f "COLAB_MODEL_KEEPALIVE_LOOP" >/dev/null 2>&1; then
-    log "Keep-alive process already running"
+    log "Keep-alive process already running (detected by process name)"
     return
   fi
 
-  log "Starting keep-alive process (sends dummy request every ${KEEP_ALIVE_INTERVAL_SECONDS} seconds)"
+  if [ "$OLLAMA_KEEP_ALIVE_VALUE" = "-1" ]; then
+    log "Keep-alive loop running even with OLLAMA_KEEP_ALIVE=-1 to ensure model stays responsive in Colab"
+  else
+    log "Starting keep-alive process (sends dummy request every ${KEEP_ALIVE_INTERVAL_SECONDS} seconds)"
+  fi
+
   nohup bash -c "
     export MODEL_NAME=\"$MODEL_NAME\"
     export OLLAMA_KEEP_ALIVE_VALUE=\"$OLLAMA_KEEP_ALIVE_VALUE\"
@@ -451,6 +463,7 @@ start_keep_alive() {
     done
   " >/tmp/keep_alive.log 2>&1 &
   echo "$!" >"$KEEP_ALIVE_PID_PATH"
+  log "Keep-alive process started (PID: $!)"
 }
 
 stop_keep_alive() {
@@ -578,9 +591,7 @@ show_activity_log() {
   echo "========================================"
   
   echo "Keep-alive status:"
-  if [ "$OLLAMA_KEEP_ALIVE_VALUE" = "-1" ]; then
-    echo "  Status: Not needed (model pinned in memory)"
-  elif [ -f "$KEEP_ALIVE_PID_PATH" ] && kill -0 "$(cat "$KEEP_ALIVE_PID_PATH" 2>/dev/null)" >/dev/null 2>&1; then
+  if [ -f "$KEEP_ALIVE_PID_PATH" ] && kill -0 "$(cat "$KEEP_ALIVE_PID_PATH" 2>/dev/null)" >/dev/null 2>&1; then
     echo "  Status: Running (sends dummy request every ${KEEP_ALIVE_INTERVAL_SECONDS} sec)"
     echo "  Log: /tmp/keep_alive.log"
   else
