@@ -346,9 +346,16 @@ ensure_services_running() {
   fi
 }
 
+warm_up_model() {
+  log "Warming up model with a dummy request (this may take a minute)..."
+  echo "hi" | timeout 120 ollama run "$MODEL_NAME" >/dev/null 2>&1 || true
+  log "Model warm-up complete. Ready for fast responses."
+}
+
 run_setup_mode() {
   setup_everything
   ensure_model
+  warm_up_model
   log "Setup complete. Chat and API modes should now start much faster."
 }
 
