@@ -7,6 +7,7 @@ import gradio as gr
 
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3-coder:latest")
 OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
+OLLAMA_REQUEST_KEEP_ALIVE = os.environ.get("OLLAMA_REQUEST_KEEP_ALIVE", "-1")
 
 
 def chat_response(message, history):
@@ -16,7 +17,12 @@ def chat_response(message, history):
     try:
         response = requests.post(
             OLLAMA_CHAT_URL,
-            json={"model": MODEL_NAME, "messages": messages, "stream": True},
+            json={
+                "model": MODEL_NAME,
+                "messages": messages,
+                "stream": True,
+                "keep_alive": OLLAMA_REQUEST_KEEP_ALIVE,
+            },
             stream=True,
             timeout=600
         )

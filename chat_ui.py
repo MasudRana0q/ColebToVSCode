@@ -11,6 +11,7 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3-coder:latest")
 HOST = os.environ.get("CHAT_UI_HOST", "0.0.0.0")
 PORT = int(os.environ.get("CHAT_UI_PORT", "8080"))
 OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
+OLLAMA_REQUEST_KEEP_ALIVE = os.environ.get("OLLAMA_REQUEST_KEEP_ALIVE", "-1")
 
 
 HTML_PAGE = """<!doctype html>
@@ -398,6 +399,7 @@ class ChatUIHandler(BaseHTTPRequestHandler):
                 "model": MODEL_NAME,
                 "messages": messages,
                 "stream": True,
+                "keep_alive": OLLAMA_REQUEST_KEEP_ALIVE,
             }
         ).encode("utf-8")
 

@@ -4,16 +4,33 @@ set -euo pipefail
 
 MODEL_NAME="${MODEL_NAME:-qwen3-coder:latest}"
 OLLAMA_HOST_BIND="${OLLAMA_HOST_BIND:-0.0.0.0:11434}"
-OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-24h}"
+OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:--1}"
 TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
 TAILSCALE_LOG_PATH="${TAILSCALE_LOG_PATH:-/tmp/tailscaled.log}"
 OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
+MODEL_DEBUG_LOG_PATH="${MODEL_DEBUG_LOG_PATH:-/tmp/model_runtime_debug.log}"
+KEEP_ALIVE_INTERVAL_SECONDS="${KEEP_ALIVE_INTERVAL_SECONDS:-240}"
+KEEP_ALIVE_PID_PATH="${KEEP_ALIVE_PID_PATH:-/tmp/colab-model-keep-alive.pid}"
 WEB_CHAT_PORT="${WEB_CHAT_PORT:-8501}"
 WEB_CHAT_HOST_BIND="${WEB_CHAT_HOST_BIND:-0.0.0.0}"
 WEB_CHAT_LOG_PATH="${WEB_CHAT_LOG_PATH:-/tmp/colab-chat-ui.log}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%H:%M:%S')" "$1"
+}
+
+debug_log() {
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$MODEL_DEBUG_LOG_PATH"
+}
+
+snapshot_loaded_models() {
+  debug_log "snapshot:start"
+  if command -v ollama >/dev/null 2>&1; then
+    ollama ps >>"$MODEL_DEBUG_LOG_PATH" 2>&1 || debug_log "snapshot:ollama-ps-failed"
+  else
+    debug_log "snapshot:ollama-command-missing"
+  fi
+  debug_log "snapshot:end"
 }
 
 require_command() {
@@ -131,6 +148,18 @@ wait_for_ollama_api() {
 
   echo "Ollama API did not become ready in time" >&2
   exit 1
+}
+
+send_keep_alive_chat_request() {
+  require_command curl
+  wait_for_ollama_api
+
+  curl --silent --show-error --fail \
+    --max-time 180 \
+    -X POST http://127.0.0.1:11434/api/chat \
+    -H "Content-Type: application/json" \
+    -d "$(printf '{"model":"%s","messages":[{"role":"user","content":"Reply with OK."}],"stream":false,"keep_alive":"%s"}' "$MODEL_NAME" "$OLLAMA_KEEP_ALIVE_VALUE")" \
+    >/dev/null
 }
 
 pull_model_with_progress() {
@@ -301,6 +330,7 @@ start_web_chat_ui() {
   nohup env \
     MODEL_NAME="$MODEL_NAME" \
     OLLAMA_CHAT_URL="http://127.0.0.1:11434/api/chat" \
+    OLLAMA_REQUEST_KEEP_ALIVE="$OLLAMA_KEEP_ALIVE_VALUE" \
     streamlit run "$(get_script_dir)/streamlit_chat.py" \
     --server.port="${WEB_CHAT_PORT}" \
     --server.address="${WEB_CHAT_HOST_BIND}" \
@@ -352,30 +382,74 @@ ensure_services_running() {
 }
 
 warm_up_model() {
+  local started_at
+  started_at="$(date +%s)"
   log "Warming up model with a dummy request (this may take a minute)..."
-  echo "hi" | timeout 120 ollama run "$MODEL_NAME" >/dev/null 2>&1 || true
+  debug_log "warmup:start model=$MODEL_NAME"
+  snapshot_loaded_models
+  send_keep_alive_chat_request || true
+  snapshot_loaded_models
+  debug_log "warmup:end duration_seconds=$(( $(date +%s) - started_at ))"
   log "Model warm-up complete. Ready for fast responses."
 }
 
 start_keep_alive() {
-  if pgrep -f "keep_alive.sh" >/dev/null 2>&1; then
+  if [ "$OLLAMA_KEEP_ALIVE_VALUE" = "-1" ]; then
+    log "Keep-alive loop skipped because model is pinned in memory with OLLAMA_KEEP_ALIVE=-1"
+    stop_keep_alive >/dev/null 2>&1 || true
+    return
+  fi
+
+  if [ -f "$KEEP_ALIVE_PID_PATH" ]; then
+    local existing_pid
+    existing_pid="$(cat "$KEEP_ALIVE_PID_PATH" 2>/dev/null || true)"
+    if [ -n "$existing_pid" ] && kill -0 "$existing_pid" >/dev/null 2>&1; then
+      log "Keep-alive process already running"
+      return
+    fi
+    rm -f "$KEEP_ALIVE_PID_PATH"
+  fi
+
+  if pgrep -f "COLAB_MODEL_KEEPALIVE_LOOP" >/dev/null 2>&1; then
     log "Keep-alive process already running"
     return
   fi
 
-  log "Starting keep-alive process (sends dummy request every 5 minutes)"
+  log "Starting keep-alive process (sends dummy request every ${KEEP_ALIVE_INTERVAL_SECONDS} seconds)"
   nohup bash -c "
+    export MODEL_NAME=\"$MODEL_NAME\"
+    export OLLAMA_KEEP_ALIVE_VALUE=\"$OLLAMA_KEEP_ALIVE_VALUE\"
+    export MODEL_DEBUG_LOG_PATH=\"$MODEL_DEBUG_LOG_PATH\"
+    export KEEP_ALIVE_INTERVAL_SECONDS=\"$KEEP_ALIVE_INTERVAL_SECONDS\"
+    COLAB_MODEL_KEEPALIVE_LOOP=1
     while true; do
-      sleep 300
-      echo '.' | timeout 60 ollama run \"$MODEL_NAME\" >/dev/null 2>&1 || true
+      sleep \"$KEEP_ALIVE_INTERVAL_SECONDS\"
+      printf '[%s] keepalive:start model=%s\n' \"\$(date '+%Y-%m-%d %H:%M:%S')\" \"$MODEL_NAME\" >>\"$MODEL_DEBUG_LOG_PATH\"
+      ollama ps >>\"$MODEL_DEBUG_LOG_PATH\" 2>&1 || true
+      curl --silent --show-error --fail \
+        --max-time 90 \
+        -X POST http://127.0.0.1:11434/api/chat \
+        -H 'Content-Type: application/json' \
+        -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Reply with OK.\\\"}],\\\"stream\\\":false,\\\"keep_alive\\\":\\\"$OLLAMA_KEEP_ALIVE_VALUE\\\"}\" \
+        >/dev/null || true
+      ollama ps >>\"$MODEL_DEBUG_LOG_PATH\" 2>&1 || true
+      printf '[%s] keepalive:end model=%s\n' \"\$(date '+%Y-%m-%d %H:%M:%S')\" \"$MODEL_NAME\" >>\"$MODEL_DEBUG_LOG_PATH\"
     done
   " >/tmp/keep_alive.log 2>&1 &
+  echo "$!" >"$KEEP_ALIVE_PID_PATH"
 }
 
 stop_keep_alive() {
   log "Stopping keep-alive process"
-  pkill -f "keep_alive.sh" || true
-  pkill -f "while true; do sleep" || true
+  if [ -f "$KEEP_ALIVE_PID_PATH" ]; then
+    local existing_pid
+    existing_pid="$(cat "$KEEP_ALIVE_PID_PATH" 2>/dev/null || true)"
+    if [ -n "$existing_pid" ]; then
+      kill "$existing_pid" >/dev/null 2>&1 || true
+    fi
+    rm -f "$KEEP_ALIVE_PID_PATH"
+  fi
+  pkill -f "COLAB_MODEL_KEEPALIVE_LOOP" || true
 }
 
 run_setup_mode() {
@@ -396,6 +470,7 @@ run_chat_mode() {
 run_web_chat_mode() {
   ensure_services_running
   ensure_model
+  warm_up_model
   start_web_chat_ui
   print_web_chat_info
 }
@@ -403,6 +478,7 @@ run_web_chat_mode() {
 run_api_mode() {
   ensure_services_running
   ensure_model
+  warm_up_model
   print_connection_info
   verify_api
   echo "Continue config:"
@@ -488,8 +564,10 @@ show_activity_log() {
   echo "========================================"
   
   echo "Keep-alive status:"
-  if pgrep -f "while true; do sleep" >/dev/null 2>&1; then
-    echo "  Status: Running (sends dummy request every 5 min)"
+  if [ "$OLLAMA_KEEP_ALIVE_VALUE" = "-1" ]; then
+    echo "  Status: Not needed (model pinned in memory)"
+  elif [ -f "$KEEP_ALIVE_PID_PATH" ] && kill -0 "$(cat "$KEEP_ALIVE_PID_PATH" 2>/dev/null)" >/dev/null 2>&1; then
+    echo "  Status: Running (sends dummy request every ${KEEP_ALIVE_INTERVAL_SECONDS} sec)"
     echo "  Log: /tmp/keep_alive.log"
   else
     echo "  Status: Stopped"
@@ -553,7 +631,8 @@ Commands:
 Optional environment variables:
   MODEL_NAME=qwen3-coder:latest
   OLLAMA_HOST_BIND=0.0.0.0:11434
-  OLLAMA_KEEP_ALIVE_VALUE=24h
+  OLLAMA_KEEP_ALIVE_VALUE=-1
+  KEEP_ALIVE_INTERVAL_SECONDS=240
 EOF
 }
 
