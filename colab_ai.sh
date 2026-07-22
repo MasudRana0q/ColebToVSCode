@@ -109,7 +109,12 @@ start_ollama_server() {
   fi
 
   log "Starting Ollama server in background"
-  nohup env OLLAMA_HOST="$OLLAMA_HOST_BIND" OLLAMA_KEEP_ALIVE="$OLLAMA_KEEP_ALIVE_VALUE" ollama serve >"$OLLAMA_LOG_PATH" 2>&1 &
+  nohup env \
+    OLLAMA_HOST="$OLLAMA_HOST_BIND" \
+    OLLAMA_KEEP_ALIVE="$OLLAMA_KEEP_ALIVE_VALUE" \
+    OLLAMA_NUM_GPU=999999 \
+    OLLAMA_GPU_LAYERS=999999 \
+    ollama serve >"$OLLAMA_LOG_PATH" 2>&1 &
   sleep 4
 }
 

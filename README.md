@@ -140,6 +140,12 @@ Config আবার দেখার জন্য:
 !bash /content/ColebToVSCode/colab_ai.sh config
 ```
 
+# Activity monitor দেখতে
+!bash colab_ai.sh monitor
+
+# Keep-alive log দেখতে
+!cat /tmp/keep_alive.log
+
 Server বন্ধ করার জন্য:
 
 ```python
