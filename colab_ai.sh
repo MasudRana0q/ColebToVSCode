@@ -352,10 +352,32 @@ warm_up_model() {
   log "Model warm-up complete. Ready for fast responses."
 }
 
+start_keep_alive() {
+  if pgrep -f "keep_alive.sh" >/dev/null 2>&1; then
+    log "Keep-alive process already running"
+    return
+  fi
+
+  log "Starting keep-alive process (sends dummy request every 5 minutes)"
+  nohup bash -c "
+    while true; do
+      sleep 300
+      echo '.' | timeout 60 ollama run \"$MODEL_NAME\" >/dev/null 2>&1 || true
+    done
+  " >/tmp/keep_alive.log 2>&1 &
+}
+
+stop_keep_alive() {
+  log "Stopping keep-alive process"
+  pkill -f "keep_alive.sh" || true
+  pkill -f "while true; do sleep" || true
+}
+
 run_setup_mode() {
   setup_everything
   ensure_model
   warm_up_model
+  start_keep_alive
   log "Setup complete. Chat and API modes should now start much faster."
 }
 
@@ -428,6 +450,9 @@ stop_services() {
   pkill -f "ollama serve" || true
   log "Stopping web chat UI if running"
   pkill -f "chat_ui.py" || true
+  pkill -f "streamlit_chat.py" || true
+  log "Stopping keep-alive process"
+  stop_keep_alive
   sleep 1
 }
 
@@ -451,6 +476,49 @@ show_web_chat_log() {
   fi
 }
 
+show_activity_log() {
+  echo
+  echo "========================================"
+  echo "Activity Monitor"
+  echo "========================================"
+  
+  echo "Keep-alive status:"
+  if pgrep -f "while true; do sleep" >/dev/null 2>&1; then
+    echo "  Status: Running (sends dummy request every 5 min)"
+    echo "  Log: /tmp/keep_alive.log"
+  else
+    echo "  Status: Stopped"
+  fi
+  
+  echo
+  echo "Recent Ollama activity:"
+  if [ -f "$OLLAMA_LOG_PATH" ]; then
+    tail -20 "$OLLAMA_LOG_PATH" 2>/dev/null || echo "  No recent activity"
+  else
+    echo "  No log file found"
+  fi
+  
+  echo
+  echo "Services status:"
+  if pgrep -x tailscaled >/dev/null 2>&1; then
+    echo "  tailscaled: Running"
+  else
+    echo "  tailscaled: Stopped"
+  fi
+  
+  if pgrep -f "ollama serve" >/dev/null 2>&1; then
+    echo "  ollama serve: Running"
+  else
+    echo "  ollama serve: Stopped"
+  fi
+  
+  if pgrep -f "streamlit_chat.py" >/dev/null 2>&1; then
+    echo "  web chat UI: Running"
+  else
+    echo "  web chat UI: Stopped"
+  fi
+}
+
 show_help() {
   cat <<'EOF'
 Usage:
@@ -463,17 +531,19 @@ Usage:
   bash colab_ai.sh status
   bash colab_ai.sh stop
   bash colab_ai.sh log
+  bash colab_ai.sh monitor
 
 Commands:
-  setup   Install everything and preload the model for the current Colab runtime
-  chat    Open local chat mode inside Colab using ollama run
-  webchat Start a browser-based chat UI that runs in the background
-  api     Start API mode for VS Code / Continue and print ready-to-use config
-  restart Stop the old Ollama server and start API mode again
-  config  Print Continue config using the current Tailscale IP
-  status  Show service and model status
-  stop    Stop the Ollama server
-  log     Show web chat UI log for debugging
+  setup    Install everything and preload the model for the current Colab runtime
+  chat     Open local chat mode inside Colab using ollama run
+  webchat  Start a browser-based chat UI that runs in the background
+  api      Start API mode for VS Code / Continue and print ready-to-use config
+  restart  Stop the old Ollama server and start API mode again
+  config   Print Continue config using the current Tailscale IP
+  status   Show service and model status
+  stop     Stop the Ollama server
+  log      Show web chat UI log for debugging
+  monitor  Show activity monitor with logs and service status
 
 Optional environment variables:
   MODEL_NAME=qwen3-coder:latest
@@ -512,6 +582,9 @@ main() {
       ;;
     log)
       show_web_chat_log
+      ;;
+    monitor)
+      show_activity_log
       ;;
     help|-h|--help)
       show_help
