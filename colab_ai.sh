@@ -352,8 +352,12 @@ ensure_services_running() {
 }
 
 warm_up_model() {
-  log "Warming up model with a dummy request (this may take a minute)..."
-  echo "hi" | timeout 120 ollama run "$MODEL_NAME" >/dev/null 2>&1 || true
+  log "Warming up model with a dummy API request (this may take a minute)..."
+  curl --silent --max-time 120 \
+    -X POST http://127.0.0.1:11434/api/generate \
+    -H "Content-Type: application/json" \
+    -d "{\"model\":\"$MODEL_NAME\",\"prompt\":\"hi\",\"stream\":false}" \
+    >/dev/null 2>&1 || true
   log "Model warm-up complete. Ready for fast responses."
 }
 
@@ -363,11 +367,15 @@ start_keep_alive() {
     return
   fi
 
-  log "Starting keep-alive process (sends dummy request every 5 minutes)"
+  log "Starting keep-alive process (sends dummy API request every 4 minutes)"
   nohup bash -c "
     while true; do
-      sleep 300
-      echo '.' | timeout 60 ollama run \"$MODEL_NAME\" >/dev/null 2>&1 || true
+      sleep 240
+      curl --silent --max-time 30 \
+        -X POST http://127.0.0.1:11434/api/generate \
+        -H \"Content-Type: application/json\" \
+        -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"prompt\\\":\\\".\\\",\\\"stream\\\":false}\" \
+        >/dev/null 2>&1 || true
     done
   " >/tmp/keep_alive.log 2>&1 &
 }
@@ -396,6 +404,8 @@ run_chat_mode() {
 run_web_chat_mode() {
   ensure_services_running
   ensure_model
+  warm_up_model
+  start_keep_alive
   start_web_chat_ui
   print_web_chat_info
 }
@@ -403,6 +413,8 @@ run_web_chat_mode() {
 run_api_mode() {
   ensure_services_running
   ensure_model
+  warm_up_model
+  start_keep_alive
   print_connection_info
   verify_api
   echo "Continue config:"
@@ -489,7 +501,7 @@ show_activity_log() {
   
   echo "Keep-alive status:"
   if pgrep -f "while true; do sleep" >/dev/null 2>&1; then
-    echo "  Status: Running (sends dummy request every 5 min)"
+    echo "  Status: Running (sends dummy API request every 4 min)"
     echo "  Log: /tmp/keep_alive.log"
   else
     echo "  Status: Stopped"
