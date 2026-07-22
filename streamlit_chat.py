@@ -7,7 +7,6 @@ import streamlit as st
 
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3-coder:latest")
 OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
-OLLAMA_REQUEST_KEEP_ALIVE = os.environ.get("OLLAMA_REQUEST_KEEP_ALIVE", "-1")
 
 st.set_page_config(page_title="Colab Ollama Chat", page_icon="🤖")
 
@@ -35,12 +34,7 @@ if prompt := st.chat_input("Type your message here..."):
         try:
             response = requests.post(
                 OLLAMA_CHAT_URL,
-                json={
-                    "model": MODEL_NAME,
-                    "messages": messages,
-                    "stream": True,
-                    "keep_alive": OLLAMA_REQUEST_KEEP_ALIVE,
-                },
+                json={"model": MODEL_NAME, "messages": messages, "stream": True},
                 stream=True,
                 timeout=600
             )
