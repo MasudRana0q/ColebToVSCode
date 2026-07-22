@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ollama-colab": {
+      "command": "python",
+      "args": [
+        "mcp-server/ollama-mcp-server.py"
+      ],
+      "env": {
+        "OLLAMA_API_BASE": "http://YOUR_TAILSCALE_IP:11434",
+        "MODEL_NAME": "qwen3-coder:latest"
+      }
+    }
+  }
+}
