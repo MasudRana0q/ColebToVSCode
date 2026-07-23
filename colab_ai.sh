@@ -399,6 +399,7 @@ run_chat_mode() {
   ensure_services_running
   ensure_model
   log "Starting local chat mode"
+  cd /tmp || cd /
   ollama run "$MODEL_NAME"
 }
 
