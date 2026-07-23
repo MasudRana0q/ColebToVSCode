@@ -140,6 +140,19 @@ http://YOUR_TAILSCALE_IP:11434
 ollama
 ```
 
+## Trae AI / Cursor / Windsurf এ ব্যবহার করতে চাইলে
+
+এই AI এডিটরগুলোতে নিচের সেটিংস দিন:
+
+- **Base URL**: `http://YOUR_TAILSCALE_IP:11434`
+- **Model**: `phi3:mini` (অথবা আপনার সিলেক্ট করা মডেল)
+- **API Key**: `ollama` (অথবা যেকোনো dummy key)
+
+**গুরুত্বপূর্ণ:**
+- অবশ্যই Tailscale IP ব্যবহার করবেন, localhost বা 127.0.0.1 ব্যবহার করবেন না
+- যদি "tools not supported" এরর আসে, তাহলে AI এডিটরের settings থেকে "Tools" বা "Function Calling" বন্ধ করে দিন
+- phi3:mini মডেলে tools support নেই, তাই tools বন্ধ করতে হবে
+
 ## দরকারি command
 
 Status দেখার জন্য:

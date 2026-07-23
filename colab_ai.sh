@@ -226,8 +226,18 @@ print_connection_info() {
   echo "OpenAI Base URL : http://$ts_ip:11434/v1"
   echo "Dummy API Key   : ollama"
   echo
-  echo "Use the dummy key only for clients that require a non-empty API key field."
-  echo "Continue with provider=ollama usually does not need an API key."
+  echo "For Trae AI / Cursor / Windsurf:"
+  echo "  - Base URL: http://$ts_ip:11434"
+  echo "  - Model: $MODEL_NAME"
+  echo "  - API Key: ollama (or any dummy key)"
+  echo
+  echo "For Continue:"
+  echo "  - Provider: ollama"
+  echo "  - API Base: http://$ts_ip:11434"
+  echo "  - Model: $MODEL_NAME"
+  echo "  - No API key needed"
+  echo
+  echo "IMPORTANT: Make sure to use the Tailscale IP, NOT localhost or 127.0.0.1"
 }
 
 print_continue_config() {
