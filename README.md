@@ -142,15 +142,35 @@ ollama
 
 ## Trae AI / Cursor / Windsurf এ ব্যবহার করতে চাইলে
 
-এই AI এডিটরগুলোতে নিচের সেটিংস দিন:
+### Trae AI এর জন্য নির্দিষ্ট সেটিংস:
+
+1. Trae AI খুলুন এবং **Add Model** এ ক্লিক করুন
+2. **Custom Config** ট্যাব সিলেক্ট করুন
+3. নিচের মানগুলো দিন:
+
+   - **API Format**: `OpenAI Chat Completions`
+   - **Custom Request URL**:
+     - **Full URL** toggle কর **ON** করুন
+     - URL: `http://YOUR_TAILSCALE_IP:11434/v1`
+   - **Model ID**: `phi3:mini` (অথবা আপনার মডেল)
+   - **API Key**: `ollama` (dummy key)
+   - **Multimodal**: **OFF**
+
+4. **Advanced Settings** এ ক্লিক করুন:
+   - **Tools** বা **Function Calling** বন্ধ করে দিন
+   - phi3:mini মডেলে tools support নেই
+
+5. **Add Model** বাটনে ক্লিক করুন
+
+### Cursor / Windsurf এর জন্য:
 
 - **Base URL**: `http://YOUR_TAILSCALE_IP:11434`
 - **Model**: `phi3:mini` (অথবা আপনার সিলেক্ট করা মডেল)
 - **API Key**: `ollama` (অথবা যেকোনো dummy key)
+- Tools/Function Calling বন্ধ করে দিন
 
 **গুরুত্বপূর্ণ:**
 - অবশ্যই Tailscale IP ব্যবহার করবেন, localhost বা 127.0.0.1 ব্যবহার করবেন না
-- যদি "tools not supported" এরর আসে, তাহলে AI এডিটরের settings থেকে "Tools" বা "Function Calling" বন্ধ করে দিন
 - phi3:mini মডেলে tools support নেই, তাই tools বন্ধ করতে হবে
 
 ## দরকারি command
