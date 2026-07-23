@@ -1,0 +1,17 @@
+{
+  "models": [
+    {
+      "provider": "ollama",
+      "model": "YOUR_SELECTED_MODEL",
+      "apiBase": "http://YOUR_TAILSCALE_IP:11434",
+      "contextLength": 8192,
+      "temperature": 0.2,
+      "capabilities": []
+    }
+  ],
+  "providerOptions": {
+    "ollama": {
+      "apiBase": "http://YOUR_TAILSCALE_IP:11434"
+    }
+  }
+}

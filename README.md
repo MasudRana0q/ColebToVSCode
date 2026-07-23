@@ -26,28 +26,29 @@ Repo link:
 !chmod +x colab_ai.sh
 !bash colab_ai.sh setup
 ```
-or
+
+**মডেল সিলেকশন:**
+- স্ক্রিপ্ট রান করার সময় আপনাকে একটি মডেল সিলেক্ট করতে বলা হবে
+- জনপ্রিয় মডেলের লিস্ট দেখানো হবে:
+  - `phi3:mini` (ছোট, দ্রুত, ~2GB)
+  - `phi3:3.8b` (ভারসাম্যপূর্ণ, ~2.3GB)
+  - `llama3:8b` (ভালো কোয়ালিটি, ~4.7GB)
+  - `mistral:7b` (ভালো কোয়ালিটি, ~4.1GB)
+  - `gemma:2b` (ছোট, ~1.6GB)
+  - `qwen:0.5b` (খুব ছোট, ~0.4GB)
+  - `gemma4:e4b` (Gemma 4, ~9.2GB)
+- আপনি চাইলে অন্য যেকোনো Ollama মডেল নাম দিতে পারেন
+
+**Custom model সরাসরি ব্যবহার করতে চাইলে:**
+
 ```python
+!rm -rf /content/ColebToVSCode
 %cd /content
-!rm -rf /content/ColebToVSCode
 !git clone https://github.com/MasudRana0q/ColebToVSCode.git
 %cd /content/ColebToVSCode
 !chmod +x colab_ai.sh
-!MODEL_NAME=phi3:mini bash colab_ai.sh setup
+!MODEL_NAME=gemma4:e4b bash colab_ai.sh setup
 ```
-
-**Custom model ব্যবহার করতে চাইলে:**
-
-```python
-!rm -rf /content/ColebToVSCode
-!git clone https://github.com/MasudRana0q/ColebToVSCode.git
-%cd /content/ColebToVSCode
-!chmod +x colab_ai.sh
-!MODEL_NAME=qwen3-coder:latest bash colab_ai.sh setup
-```
-
-ডিফল্ট মডেল: `phi3:mini` (হালকা মডেল, দ্রুত লোড হয়)
-অন্য মডেলের উদাহরণ: `qwen3-coder:latest`, `llama3:latest`, `mistral:latest`
 
 এতে যা হবে:
 
@@ -152,26 +153,26 @@ ollama
    - **Custom Request URL**:
      - **Full URL** toggle কর **ON** করুন
      - URL: `http://YOUR_TAILSCALE_IP:11434/v1`
-   - **Model ID**: `phi3:mini` (অথবা আপনার মডেল)
+   - **Model ID**: আপনার সিলেক্ট করা মডেল
    - **API Key**: `ollama` (dummy key)
    - **Multimodal**: **OFF**
 
 4. **Advanced Settings** এ ক্লিক করুন:
    - **Tools** বা **Function Calling** বন্ধ করে দিন
-   - phi3:mini মডেলে tools support নেই
+   - ছোট মডেলগুলোতে tools support নেই থাকতে পারে
 
 5. **Add Model** বাটনে ক্লিক করুন
 
 ### Cursor / Windsurf এর জন্য:
 
 - **Base URL**: `http://YOUR_TAILSCALE_IP:11434`
-- **Model**: `phi3:mini` (অথবা আপনার সিলেক্ট করা মডেল)
+- **Model**: আপনার সিলেক্ট করা মডেল
 - **API Key**: `ollama` (অথবা যেকোনো dummy key)
 - Tools/Function Calling বন্ধ করে দিন
 
 **গুরুত্বপূর্ণ:**
 - অবশ্যই Tailscale IP ব্যবহার করবেন, localhost বা 127.0.0.1 ব্যবহার করবেন না
-- phi3:mini মডেলে tools support নেই, তাই tools বন্ধ করতে হবে
+- ছোট মডেলগুলোতে (যেমন phi3:mini, qwen:0.5b) tools support নেই থাকতে পারে, তাই tools বন্ধ করতে হবে
 
 ## দরকারি command
 

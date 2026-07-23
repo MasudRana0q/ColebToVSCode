@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-MODEL_NAME="${MODEL_NAME:-phi3:mini}"
+MODEL_NAME="${MODEL_NAME:-}"
 OLLAMA_HOST_BIND="${OLLAMA_HOST_BIND:-0.0.0.0:11434}"
 OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-24h}"
 TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
@@ -14,6 +14,39 @@ WEB_CHAT_LOG_PATH="${WEB_CHAT_LOG_PATH:-/tmp/colab-chat-ui.log}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%H:%M:%S')" "$1"
+}
+
+prompt_for_model_selection() {
+  if [ -n "$MODEL_NAME" ]; then
+    log "Using pre-selected model: $MODEL_NAME"
+    return
+  fi
+
+  echo
+  echo "========================================"
+  echo "Model Selection Required"
+  echo "========================================"
+  echo "Please select a model to use with Ollama."
+  echo
+  echo "Popular models:"
+  echo "  - phi3:mini (small, fast, ~2GB)"
+  echo "  - phi3:3.8b (balanced, ~2.3GB)"
+  echo "  - llama3:8b (good quality, ~4.7GB)"
+  echo "  - mistral:7b (good quality, ~4.1GB)"
+  echo "  - gemma:2b (small, ~1.6GB)"
+  echo "  - qwen:0.5b (very small, ~0.4GB)"
+  echo
+  echo "You can also specify any other Ollama model name."
+  echo
+  read -p "Enter model name (e.g., phi3:mini): " MODEL_NAME
+
+  if [ -z "$MODEL_NAME" ]; then
+    echo "ERROR: No model selected. You must select a model to continue." >&2
+    exit 1
+  fi
+
+  log "Selected model: $MODEL_NAME"
+  export MODEL_NAME
 }
 
 require_command() {
@@ -398,6 +431,7 @@ stop_keep_alive() {
 }
 
 run_setup_mode() {
+  prompt_for_model_selection
   setup_everything
   ensure_model
   warm_up_model
@@ -406,6 +440,7 @@ run_setup_mode() {
 }
 
 run_chat_mode() {
+  prompt_for_model_selection
   ensure_services_running
   ensure_model
   log "Starting local chat mode"
@@ -414,6 +449,7 @@ run_chat_mode() {
 }
 
 run_web_chat_mode() {
+  prompt_for_model_selection
   ensure_services_running
   ensure_model
   warm_up_model
@@ -423,6 +459,7 @@ run_web_chat_mode() {
 }
 
 run_api_mode() {
+  prompt_for_model_selection
   ensure_services_running
   ensure_model
   warm_up_model

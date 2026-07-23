@@ -5,11 +5,17 @@ import os
 import requests
 import streamlit as st
 
-MODEL_NAME = os.environ.get("MODEL_NAME", "phi3:mini")
+MODEL_NAME = os.environ.get("MODEL_NAME", "")
 OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
 OLLAMA_BASE_URL = OLLAMA_CHAT_URL.replace("/api/chat", "")
 
 st.set_page_config(page_title="Colab Ollama Chat", page_icon="🤖")
+
+if not MODEL_NAME:
+    st.error("❌ ERROR: No model selected!")
+    st.info("Please run the setup script with a model selection first:")
+    st.code("bash colab_ai.sh setup", language="bash")
+    st.stop()
 
 st.title(f"Colab Ollama Chat")
 st.caption(f"Model: {MODEL_NAME}")

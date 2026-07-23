@@ -3,10 +3,10 @@ version: 1.0.0
 schema: v1
 
 models:
-  - name: Phi3 Mini
+  - name: YOUR_SELECTED_MODEL
     provider: ollama
-    model: phi3:mini
-    apiBase: http://100.79.32.100:11434
+    model: YOUR_SELECTED_MODEL
+    apiBase: YOUR_TAILSCALE_IP:11434
 
     defaultCompletionOptions:
       contextLength: 8192
