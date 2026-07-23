@@ -33,8 +33,22 @@ or
 !git clone https://github.com/MasudRana0q/ColebToVSCode.git
 %cd /content/ColebToVSCode
 !chmod +x colab_ai.sh
-!bash colab_ai.sh setup
+!MODEL_NAME=phi3:mini bash colab_ai.sh setup
 ```
+
+**Custom model ব্যবহার করতে চাইলে:**
+
+```python
+!rm -rf /content/ColebToVSCode
+!git clone https://github.com/MasudRana0q/ColebToVSCode.git
+%cd /content/ColebToVSCode
+!chmod +x colab_ai.sh
+!MODEL_NAME=qwen3-coder:latest bash colab_ai.sh setup
+```
+
+ডিফল্ট মডেল: `phi3:mini` (হালকা মডেল, দ্রুত লোড হয়)
+অন্য মডেলের উদাহরণ: `qwen3-coder:latest`, `llama3:latest`, `mistral:latest`
+
 এতে যা হবে:
 
 - repo clone হবে

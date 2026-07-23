@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-MODEL_NAME="${MODEL_NAME:-qwen3-coder:latest}"
+MODEL_NAME="${MODEL_NAME:-phi3:mini}"
 OLLAMA_HOST_BIND="${OLLAMA_HOST_BIND:-0.0.0.0:11434}"
-OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-24h}"
+OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-0}"
 TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
 TAILSCALE_LOG_PATH="${TAILSCALE_LOG_PATH:-/tmp/tailscaled.log}"
 OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
@@ -114,6 +114,7 @@ start_ollama_server() {
     OLLAMA_KEEP_ALIVE="$OLLAMA_KEEP_ALIVE_VALUE" \
     OLLAMA_NUM_GPU=999999 \
     OLLAMA_GPU_LAYERS=999999 \
+    OLLAMA_NUM_LOAD=1 \
     ollama serve >"$OLLAMA_LOG_PATH" 2>&1 &
   sleep 4
 }
@@ -367,10 +368,10 @@ start_keep_alive() {
     return
   fi
 
-  log "Starting keep-alive process (sends dummy API request every 4 minutes)"
+  log "Starting keep-alive process (sends dummy API request every 2 minutes)"
   nohup bash -c "
     while true; do
-      sleep 240
+      sleep 120
       curl --silent --max-time 30 \
         -X POST http://127.0.0.1:11434/api/generate \
         -H \"Content-Type: application/json\" \
@@ -404,7 +405,6 @@ run_chat_mode() {
 run_web_chat_mode() {
   ensure_services_running
   ensure_model
-  warm_up_model
   start_keep_alive
   start_web_chat_ui
   print_web_chat_info
@@ -413,7 +413,6 @@ run_web_chat_mode() {
 run_api_mode() {
   ensure_services_running
   ensure_model
-  warm_up_model
   start_keep_alive
   print_connection_info
   verify_api
@@ -563,9 +562,9 @@ Commands:
   monitor  Show activity monitor with logs and service status
 
 Optional environment variables:
-  MODEL_NAME=qwen3-coder:latest
+  MODEL_NAME=phi3:mini
   OLLAMA_HOST_BIND=0.0.0.0:11434
-  OLLAMA_KEEP_ALIVE_VALUE=24h
+  OLLAMA_KEEP_ALIVE_VALUE=0 (0 means model stays loaded indefinitely)
 EOF
 }
 
