@@ -4,7 +4,7 @@ set -euo pipefail
 
 MODEL_NAME="${MODEL_NAME:-}"
 OLLAMA_HOST_BIND="${OLLAMA_HOST_BIND:-0.0.0.0:11434}"
-OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-24h}"
+OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-48h}"
 TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
 TAILSCALE_LOG_PATH="${TAILSCALE_LOG_PATH:-/tmp/tailscaled.log}"
 OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
@@ -146,10 +146,11 @@ start_ollama_server() {
   nohup env \
     OLLAMA_HOST="$OLLAMA_HOST_BIND" \
     OLLAMA_KEEP_ALIVE="$OLLAMA_KEEP_ALIVE_VALUE" \
-    OLLAMA_NUM_GPU=999999 \
-    OLLAMA_GPU_LAYERS=999999 \
+    OLLAMA_NUM_GPU=1 \
+    OLLAMA_GPU_LAYERS=-1 \
     OLLAMA_NUM_LOAD=1 \
     OLLAMA_LOAD_TIMEOUT=600 \
+    OLLAMA_DEBUG=1 \
     ollama serve >"$OLLAMA_LOG_PATH" 2>&1 &
   sleep 4
   log "Ollama server started with OLLAMA_KEEP_ALIVE=$OLLAMA_KEEP_ALIVE_VALUE"
@@ -398,26 +399,26 @@ warm_up_model() {
   curl --silent --max-time 120 \
     -X POST http://127.0.0.1:11434/api/generate \
     -H "Content-Type: application/json" \
-    -d "{\"model\":\"$MODEL_NAME\",\"prompt\":\"hi\",\"stream\":false}" \
+    -d "{\"model\":\"$MODEL_NAME\",\"prompt\":\"hi\",\"stream\":false,\"keep_alive\":\"48h\"}" \
     >/dev/null 2>&1 || true
   log "Model warm-up complete. Ready for fast responses."
 }
 
 start_keep_alive() {
-  if pgrep -f "while true; do sleep" >/dev/null 2>&1; then
+  if pgrep -f "while true; do sleep 30" >/dev/null 2>&1; then
     log "Keep-alive process already running"
     return
   fi
 
-  log "Starting keep-alive process (sends dummy API request every 1 minute)"
+  log "Starting keep-alive process (sends dummy API request every 30 seconds)"
   nohup bash -c "
     while true; do
-      sleep 60
+      sleep 30
       echo \"[\$(date '+%H:%M:%S')] Sending keep-alive request for model: $MODEL_NAME\" >> /tmp/keep_alive.log
       curl --silent --max-time 30 \
         -X POST http://127.0.0.1:11434/api/generate \
         -H \"Content-Type: application/json\" \
-        -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"prompt\\\":\\\".\\\",\\\"stream\\\":false}\" \
+        -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"prompt\\\":\\\".\\\",\\\"stream\\\":false,\\\"keep_alive\\\":\\\"48h\\\"}\" \
         >> /tmp/keep_alive.log 2>&1 || echo \"[\$(date '+%H:%M:%S')] Keep-alive request failed\" >> /tmp/keep_alive.log
     done
   " >/tmp/keep_alive.log 2>&1 &
@@ -427,7 +428,7 @@ start_keep_alive() {
 stop_keep_alive() {
   log "Stopping keep-alive process"
   pkill -f "keep_alive.sh" || true
-  pkill -f "while true; do sleep" || true
+  pkill -f "while true; do sleep 30" || true
 }
 
 run_setup_mode() {
@@ -548,11 +549,18 @@ show_activity_log() {
   echo "========================================"
   
   echo "Keep-alive status:"
-  if pgrep -f "while true; do sleep" >/dev/null 2>&1; then
-    echo "  Status: Running (sends dummy API request every 4 min)"
+  if pgrep -f "while true; do sleep 30" >/dev/null 2>&1; then
+    echo "  Status: Running (sends dummy API request every 30 seconds)"
     echo "  Log: /tmp/keep_alive.log"
+    echo
+    echo "  Recent keep-alive activity:"
+    if [ -f "/tmp/keep_alive.log" ]; then
+      tail -10 /tmp/keep_alive.log 2>/dev/null || echo "  No recent activity"
+    else
+      echo "  No log file found"
+    fi
   else
-    echo "  Status: Stopped"
+    echo "  Status: Stopped (THIS MAY CAUSE MODEL UNLOADING!)"
   fi
   
   echo
@@ -581,6 +589,48 @@ show_activity_log() {
     echo "  web chat UI: Running"
   else
     echo "  web chat UI: Stopped"
+  fi
+}
+
+diagnose_model_unload() {
+  echo
+  echo "========================================"
+  echo "Model Unload Diagnosis"
+  echo "========================================"
+  
+  echo "Checking Ollama server logs for model unload events..."
+  if [ -f "$OLLAMA_LOG_PATH" ]; then
+    echo "Recent Ollama logs:"
+    tail -50 "$OLLAMA_LOG_PATH" 2>/dev/null
+  else
+    echo "No Ollama log file found"
+  fi
+  
+  echo
+  echo "Checking GPU memory usage..."
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null || echo "nvidia-smi not available"
+  else
+    echo "nvidia-smi not available (no GPU or not installed)"
+  fi
+  
+  echo
+  echo "Checking system memory..."
+  free -h 2>/dev/null || echo "free command not available"
+  
+  echo
+  echo "Checking Ollama model status..."
+  if command -v ollama >/dev/null 2>&1; then
+    ollama ps 2>/dev/null || echo "Cannot get model status"
+  else
+    echo "Ollama command not available"
+  fi
+  
+  echo
+  echo "Checking if Ollama server restarted recently..."
+  if [ -f "$OLLAMA_LOG_PATH" ]; then
+    echo "Ollama server start time in logs:"
+    grep -i "starting\|listening" "$OLLAMA_LOG_PATH" 2>/dev/null | tail -5
   fi
 }
 
@@ -613,7 +663,7 @@ Commands:
 Optional environment variables:
   MODEL_NAME=phi3:mini
   OLLAMA_HOST_BIND=0.0.0.0:11434
-  OLLAMA_KEEP_ALIVE_VALUE=24h (model stays loaded for 24 hours after last use)
+  OLLAMA_KEEP_ALIVE_VALUE=48h (model stays loaded for 48 hours after last use)
 EOF
 }
 
@@ -650,6 +700,9 @@ main() {
       ;;
     monitor)
       show_activity_log
+      ;;
+    diagnose)
+      diagnose_model_unload
       ;;
     help|-h|--help)
       show_help
