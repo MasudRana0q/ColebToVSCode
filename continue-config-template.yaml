@@ -6,7 +6,7 @@ models:
   - name: Qwen3 Coder
     provider: ollama
     model: qwen3-coder:latest
-    apiBase: http://YOUR_TAILSCALE_IP:11434
+    apiBase: http://100.79.224.17:11434
 
     defaultCompletionOptions:
       contextLength: 8192

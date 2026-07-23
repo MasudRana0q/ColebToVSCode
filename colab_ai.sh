@@ -109,14 +109,17 @@ start_ollama_server() {
   fi
 
   log "Starting Ollama server in background"
+  cd /tmp || cd /
   nohup env \
     OLLAMA_HOST="$OLLAMA_HOST_BIND" \
     OLLAMA_KEEP_ALIVE="$OLLAMA_KEEP_ALIVE_VALUE" \
     OLLAMA_NUM_GPU=999999 \
     OLLAMA_GPU_LAYERS=999999 \
     OLLAMA_NUM_LOAD=1 \
+    OLLAMA_LOAD_TIMEOUT=600 \
     ollama serve >"$OLLAMA_LOG_PATH" 2>&1 &
   sleep 4
+  log "Ollama server started with OLLAMA_KEEP_ALIVE=$OLLAMA_KEEP_ALIVE_VALUE"
 }
 
 wait_for_ollama_api() {
@@ -363,22 +366,24 @@ warm_up_model() {
 }
 
 start_keep_alive() {
-  if pgrep -f "keep_alive.sh" >/dev/null 2>&1; then
+  if pgrep -f "while true; do sleep" >/dev/null 2>&1; then
     log "Keep-alive process already running"
     return
   fi
 
-  log "Starting keep-alive process (sends dummy API request every 2 minutes)"
+  log "Starting keep-alive process (sends dummy API request every 1 minute)"
   nohup bash -c "
     while true; do
-      sleep 120
+      sleep 60
+      echo \"[\$(date '+%H:%M:%S')] Sending keep-alive request for model: $MODEL_NAME\" >> /tmp/keep_alive.log
       curl --silent --max-time 30 \
         -X POST http://127.0.0.1:11434/api/generate \
         -H \"Content-Type: application/json\" \
         -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"prompt\\\":\\\".\\\",\\\"stream\\\":false}\" \
-        >/dev/null 2>&1 || true
+        >> /tmp/keep_alive.log 2>&1 || echo \"[\$(date '+%H:%M:%S')] Keep-alive request failed\" >> /tmp/keep_alive.log
     done
   " >/tmp/keep_alive.log 2>&1 &
+  log "Keep-alive process started with PID: $!"
 }
 
 stop_keep_alive() {
