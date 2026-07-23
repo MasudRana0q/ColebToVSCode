@@ -1,0 +1,19 @@
+name: Colab Ollama
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Phi3 Mini
+    provider: ollama
+    model: phi3:mini
+    apiBase: http://100.79.32.100:11434
+
+    defaultCompletionOptions:
+      contextLength: 8192
+      temperature: 0.2
+
+    roles:
+      - chat
+      - edit
+      - apply
+      - autocomplete

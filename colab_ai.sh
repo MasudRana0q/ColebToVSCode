@@ -250,7 +250,7 @@ version: 1.0.0
 schema: v1
 
 models:
-  - name: Qwen3 Coder
+  - name: Colab Model
     provider: ollama
     model: $MODEL_NAME
     apiBase: http://$ts_ip:11434
@@ -258,9 +258,6 @@ models:
     defaultCompletionOptions:
       contextLength: 8192
       temperature: 0.2
-
-    capabilities:
-      - tool_use
 
     roles:
       - chat
