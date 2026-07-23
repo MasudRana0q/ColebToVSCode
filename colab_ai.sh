@@ -4,7 +4,7 @@ set -euo pipefail
 
 MODEL_NAME="${MODEL_NAME:-phi3:mini}"
 OLLAMA_HOST_BIND="${OLLAMA_HOST_BIND:-0.0.0.0:11434}"
-OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-0}"
+OLLAMA_KEEP_ALIVE_VALUE="${OLLAMA_KEEP_ALIVE_VALUE:-24h}"
 TAILSCALE_STATE_PATH="${TAILSCALE_STATE_PATH:-/tmp/tailscaled.state}"
 TAILSCALE_LOG_PATH="${TAILSCALE_LOG_PATH:-/tmp/tailscaled.log}"
 OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
@@ -297,8 +297,6 @@ start_web_chat_ui() {
 
   log "Stopping any existing web chat UI process"
   pkill -9 -f "streamlit_chat.py" || true
-  pkill -9 -f "gradio_chat.py" || true
-  pkill -9 -f "chat_ui.py" || true
   sleep 2
 
   log "Starting Streamlit web chat UI in background"
@@ -411,6 +409,7 @@ run_chat_mode() {
 run_web_chat_mode() {
   ensure_services_running
   ensure_model
+  warm_up_model
   start_keep_alive
   start_web_chat_ui
   print_web_chat_info
@@ -419,6 +418,7 @@ run_web_chat_mode() {
 run_api_mode() {
   ensure_services_running
   ensure_model
+  warm_up_model
   start_keep_alive
   print_connection_info
   verify_api
@@ -471,7 +471,6 @@ stop_services() {
   log "Stopping Ollama server if running"
   pkill -f "ollama serve" || true
   log "Stopping web chat UI if running"
-  pkill -f "chat_ui.py" || true
   pkill -f "streamlit_chat.py" || true
   log "Stopping keep-alive process"
   stop_keep_alive
@@ -570,7 +569,7 @@ Commands:
 Optional environment variables:
   MODEL_NAME=phi3:mini
   OLLAMA_HOST_BIND=0.0.0.0:11434
-  OLLAMA_KEEP_ALIVE_VALUE=0 (0 means model stays loaded indefinitely)
+  OLLAMA_KEEP_ALIVE_VALUE=24h (model stays loaded for 24 hours after last use)
 EOF
 }
 
