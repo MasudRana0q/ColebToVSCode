@@ -9,6 +9,28 @@ Repo link:
 - Colab-এ AI chat
 - VS Code-এ API দিয়ে coding
 
+## System Prompt সেট করার ধরন (AI কে নির্দেশনা দিতে)
+
+AI কে আপনার নির্দেশনা অনুযায়ী কাজ করাতে system prompt সেট করতে পারেন।
+
+**ধারা ১: Environment variable দিয়ে (নতুন সেলে)**
+```python
+import os
+os.environ["SYSTEM_PROMPT"] = "তুমি একজন বিশেষজ্ঞ কোডার। সবসময় নির্দেশনা অনুযায়ী কাজ করবে..."
+```
+
+**ধারা ২: Web chat UI-তে সরাসরি লিখে**
+- Web chat খোলার পর একটি "System Prompt" text box দেখবেন
+- সেখানে আপনার instruction লিখে দিন
+- প্রতিটি message-এ এটি apply হবে
+
+**ধারা ৩: দুটো একসাথে**
+```python
+import os
+os.environ["SYSTEM_PROMPT"] = "আপনার instruction..."
+!bash /content/ColebToVSCode/colab_ai.sh webchat
+```
+
 ## প্রথমে কী করবেন
 
 - Google Colab খুলুন

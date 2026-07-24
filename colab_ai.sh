@@ -379,6 +379,7 @@ start_web_chat_ui() {
   nohup env \
     MODEL_NAME="$MODEL_NAME" \
     OLLAMA_CHAT_URL="http://127.0.0.1:11434/api/chat" \
+    SYSTEM_PROMPT="${SYSTEM_PROMPT:-}" \
     streamlit run "$(get_script_dir)/streamlit_chat.py" \
     --server.port="${WEB_CHAT_PORT}" \
     --server.address="${WEB_CHAT_HOST_BIND}" \

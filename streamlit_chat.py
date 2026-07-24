@@ -8,6 +8,7 @@ import streamlit as st
 MODEL_NAME = os.environ.get("MODEL_NAME", "")
 OLLAMA_CHAT_URL = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
 OLLAMA_BASE_URL = OLLAMA_CHAT_URL.replace("/api/chat", "")
+SYSTEM_PROMPT = os.environ.get("SYSTEM_PROMPT", "")
 
 st.set_page_config(page_title="Colab Ollama Chat", page_icon="🤖")
 
@@ -19,6 +20,18 @@ if not MODEL_NAME:
 
 st.title(f"Colab Ollama Chat")
 st.caption(f"Model: {MODEL_NAME}")
+
+# System prompt input
+if not SYSTEM_PROMPT:
+    SYSTEM_PROMPT = st.text_area(
+        "System Prompt (optional - sets AI behavior)",
+        placeholder="তুমি একজন বিশেষজ্ঞ কোডার...",
+        height=100
+    )
+else:
+    st.caption(f"System prompt set via environment variable")
+    with st.expander("View/Edit System Prompt"):
+        SYSTEM_PROMPT = st.text_area("System Prompt", value=SYSTEM_PROMPT, height=100)
 
 # Connection status check
 try:
@@ -48,6 +61,10 @@ if prompt := st.chat_input("Type your message here..."):
         full_response = ""
 
         messages = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+        
+        # Add system prompt if provided
+        if SYSTEM_PROMPT.strip():
+            messages = [{"role": "system", "content": SYSTEM_PROMPT.strip()}] + messages
 
         try:
             response = requests.post(
