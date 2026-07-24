@@ -11,17 +11,52 @@ OLLAMA_LOG_PATH="${OLLAMA_LOG_PATH:-/tmp/ollama-serve.log}"
 WEB_CHAT_PORT="${WEB_CHAT_PORT:-8501}"
 WEB_CHAT_HOST_BIND="${WEB_CHAT_HOST_BIND:-0.0.0.0}"
 WEB_CHAT_LOG_PATH="${WEB_CHAT_LOG_PATH:-/tmp/colab-chat-ui.log}"
+MODEL_SAVE_PATH="${MODEL_SAVE_PATH:-/tmp/colab_ai_model.txt}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%H:%M:%S')" "$1"
 }
 
+save_model_name() {
+  echo "$MODEL_NAME" > "$MODEL_SAVE_PATH"
+  log "Model name saved: $MODEL_NAME"
+}
+
+load_saved_model_name() {
+  if [ -f "$MODEL_SAVE_PATH" ]; then
+    local saved_model
+    saved_model=$(cat "$MODEL_SAVE_PATH" 2>/dev/null | tr -d '\n\r')
+    if [ -n "$saved_model" ]; then
+      echo "$saved_model"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 prompt_for_model_selection() {
+  # যদি MODEL_NAME already set থাকে (environment variable থেকে)
   if [ -n "$MODEL_NAME" ]; then
     log "Using pre-selected model: $MODEL_NAME"
     return
   fi
 
+  # যদি আগে save করা model থাকে
+  local saved_model
+  if saved_model=$(load_saved_model_name); then
+    log "Found previously saved model: $saved_model"
+    echo
+    read -p "Use this model? (y/n, default: y): " use_saved
+    use_saved="${use_saved:-y}"
+    if [[ "$use_saved" =~ ^[Yy]$ ]]; then
+      MODEL_NAME="$saved_model"
+      log "Using saved model: $MODEL_NAME"
+      export MODEL_NAME
+      return
+    fi
+  fi
+
+  # নতুন model selection prompt
   echo
   echo "========================================"
   echo "Model Selection Required"
@@ -394,12 +429,34 @@ ensure_services_running() {
   fi
 }
 
+auto_select_model() {
+  # যদি MODEL_NAME already set থাকে, সেটা use করব
+  if [ -n "$MODEL_NAME" ]; then
+    log "Using model from environment: $MODEL_NAME"
+    return
+  fi
+
+  # saved model load করার চেষ্টা করব
+  local saved_model
+  if saved_model=$(load_saved_model_name); then
+    MODEL_NAME="$saved_model"
+    log "Using saved model from setup: $MODEL_NAME"
+    export MODEL_NAME
+    return
+  fi
+
+  # কোনো saved model না থাকলে prompt করব
+  log "No saved model found. Please select a model."
+  prompt_for_model_selection
+  save_model_name
+}
+
 warm_up_model() {
   log "Warming up model with a dummy API request (this may take a minute)..."
   curl --silent --max-time 120 \
-    -X POST http://127.0.0.1:11434/api/generate \
+    -X POST http://127.0.0.1:11434/api/chat \
     -H "Content-Type: application/json" \
-    -d "{\"model\":\"$MODEL_NAME\",\"prompt\":\"hi\",\"stream\":false,\"keep_alive\":\"48h\"}" \
+    -d "{\"model\":\"$MODEL_NAME\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false,\"keep_alive\":\"48h\"}" \
     >/dev/null 2>&1 || true
   log "Model warm-up complete. Ready for fast responses."
 }
@@ -416,9 +473,9 @@ start_keep_alive() {
       sleep 30
       echo \"[\$(date '+%H:%M:%S')] Sending keep-alive request for model: $MODEL_NAME\" >> /tmp/keep_alive.log
       curl --silent --max-time 30 \
-        -X POST http://127.0.0.1:11434/api/generate \
+        -X POST http://127.0.0.1:11434/api/chat \
         -H \"Content-Type: application/json\" \
-        -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"prompt\\\":\\\".\\\",\\\"stream\\\":false,\\\"keep_alive\\\":\\\"48h\\\"}\" \
+        -d \"{\\\"model\\\":\\\"$MODEL_NAME\\\",\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\".\\\"}],\\\"stream\\\":false,\\\"keep_alive\\\":\\\"48h\\\"}\" \
         >> /tmp/keep_alive.log 2>&1 || echo \"[\$(date '+%H:%M:%S')] Keep-alive request failed\" >> /tmp/keep_alive.log
     done
   " >/tmp/keep_alive.log 2>&1 &
@@ -433,15 +490,17 @@ stop_keep_alive() {
 
 run_setup_mode() {
   prompt_for_model_selection
+  save_model_name
   setup_everything
   ensure_model
   warm_up_model
   start_keep_alive
   log "Setup complete. Chat and API modes should now start much faster."
+  log "Saved model: $MODEL_NAME (will be used automatically in future commands)"
 }
 
 run_chat_mode() {
-  prompt_for_model_selection
+  auto_select_model
   ensure_services_running
   ensure_model
   log "Starting local chat mode"
@@ -450,7 +509,7 @@ run_chat_mode() {
 }
 
 run_web_chat_mode() {
-  prompt_for_model_selection
+  auto_select_model
   ensure_services_running
   ensure_model
   start_web_chat_ui
@@ -458,7 +517,7 @@ run_web_chat_mode() {
 }
 
 run_api_mode() {
-  prompt_for_model_selection
+  auto_select_model
   ensure_services_running
   ensure_model
   print_connection_info
@@ -538,7 +597,79 @@ show_web_chat_log() {
   fi
 }
 
-show_activity_log() {
+show_model_status() {
+  echo
+  echo "========================================"
+  echo "Model Status"
+  echo "========================================"
+  
+  if [ -f "$MODEL_SAVE_PATH" ]; then
+    local saved_model
+    saved_model=$(cat "$MODEL_SAVE_PATH" 2>/dev/null | tr -d '\n\r')
+    echo "Saved model from setup: $saved_model"
+    echo
+  else
+    echo "No saved model found (run 'setup' first)"
+    echo
+  fi
+  
+  if ! command -v ollama >/dev/null 2>&1; then
+    echo "Ollama not installed"
+    return
+  fi
+  
+  echo "Currently loaded models:"
+  ollama ps 2>/dev/null || echo "Cannot get model status"
+  
+  echo
+  echo "Model list:"
+  ollama list 2>/dev/null || echo "Cannot list models"
+  
+  if [ -f "$OLLAMA_LOG_PATH" ]; then
+    echo
+    echo "Recent Ollama activity (last 15 lines):"
+    tail -15 "$OLLAMA_LOG_PATH" 2>/dev/null | grep -E "loading|unloading|model|loaded" || echo "No model load/unload events found"
+  fi
+}
+
+change_saved_model() {
+  echo
+  echo "========================================"
+  echo "Change Saved Model"
+  echo "========================================"
+  
+  if [ -f "$MODEL_SAVE_PATH" ]; then
+    local current_model
+    current_model=$(cat "$MODEL_SAVE_PATH" 2>/dev/null | tr -d '\n\r')
+    echo "Current saved model: $current_model"
+    echo
+  else
+    echo "No saved model found"
+    echo
+  fi
+  
+  echo "Popular models:"
+  echo "  - phi3:mini (small, fast, ~2GB)"
+  echo "  - phi3:3.8b (balanced, ~2.3GB)"
+  echo "  - llama3:8b (good quality, ~4.7GB)"
+  echo "  - mistral:7b (good quality, ~4.1GB)"
+  echo "  - gemma:2b (small, ~1.6GB)"
+  echo "  - qwen:0.5b (very small, ~0.4GB)"
+  echo
+  
+  read -p "Enter new model name: " new_model
+  
+  if [ -z "$new_model" ]; then
+    echo "ERROR: No model name provided" >&2
+    exit 1
+  fi
+  
+  echo "$new_model" > "$MODEL_SAVE_PATH"
+  log "Saved model changed to: $new_model"
+  echo
+  echo "The new model will be used in future chat/webchat/api commands."
+  echo "Run 'bash colab_ai.sh api' or 'bash colab_ai.sh webchat' to use the new model."
+}
   echo
   echo "========================================"
   echo "Activity Monitor"
@@ -654,6 +785,8 @@ Commands:
   status   Show service and model status
   stop     Stop the Ollama server
   log      Show web chat UI log for debugging
+  modelstatus  Show currently loaded models and saved model from setup
+  changemodel  Change the saved model name (will be used in future commands)
   monitor  Show activity monitor with logs and service status
 
 Optional environment variables:
@@ -693,6 +826,12 @@ main() {
       ;;
     log)
       show_web_chat_log
+      ;;
+    modelstatus)
+      show_model_status
+      ;;
+    changemodel)
+      change_saved_model
       ;;
     monitor)
       show_activity_log

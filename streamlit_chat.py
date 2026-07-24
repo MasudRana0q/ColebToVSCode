@@ -52,7 +52,7 @@ if prompt := st.chat_input("Type your message here..."):
         try:
             response = requests.post(
                 OLLAMA_CHAT_URL,
-                json={"model": MODEL_NAME, "messages": messages, "stream": True},
+                json={"model": MODEL_NAME, "messages": messages, "stream": True, "keep_alive": "48h"},
                 stream=True,
                 timeout=600
             )
