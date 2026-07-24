@@ -6,7 +6,7 @@
       "apiBase": "http://YOUR_TAILSCALE_IP:11434",
       "contextLength": 8192,
       "temperature": 0.2,
-      "capabilities": []
+      "capabilities": ["edit", "apply", "chat", "autocomplete"]
     }
   ],
   "providerOptions": {

@@ -453,8 +453,6 @@ run_web_chat_mode() {
   prompt_for_model_selection
   ensure_services_running
   ensure_model
-  warm_up_model
-  start_keep_alive
   start_web_chat_ui
   print_web_chat_info
 }
@@ -463,8 +461,6 @@ run_api_mode() {
   prompt_for_model_selection
   ensure_services_running
   ensure_model
-  warm_up_model
-  start_keep_alive
   print_connection_info
   verify_api
   echo "Continue config:"
