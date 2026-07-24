@@ -670,6 +670,8 @@ change_saved_model() {
   echo "The new model will be used in future chat/webchat/api commands."
   echo "Run 'bash colab_ai.sh api' or 'bash colab_ai.sh webchat' to use the new model."
 }
+
+show_activity_log() {
   echo
   echo "========================================"
   echo "Activity Monitor"
